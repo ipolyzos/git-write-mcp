@@ -7,9 +7,15 @@ package policy
 import "context"
 
 // InvocationRequest describes a planned git subprocess (argv after the git binary name).
+// Actor, Action, Target, and DryRunRequested are optional metadata for centralized approval.
 type InvocationRequest struct {
 	WorkDir string
 	Args    []string
+
+	Actor           string
+	Action          string
+	Target          string
+	DryRunRequested bool
 }
 
 // Decision is returned by Approver.Approve. DryRun skips execution while still allowing the request.

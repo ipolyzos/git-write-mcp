@@ -31,7 +31,7 @@ type ExecutorOptions struct {
 	Approver policy.Approver
 }
 
-// RunResult is the outcome of [Executor.Run].
+// RunResult is the outcome of [Executor.Run] or [Executor.RunApproved].
 type RunResult struct {
 	Stdout  []byte
 	Stderr  []byte
@@ -84,8 +84,33 @@ func (e *Executor) Run(ctx context.Context, workDir string, argv []string) (RunR
 			return RunResult{}, policy.ErrApprovalRequired
 		}
 		if d.DryRun {
-			return RunResult{Skipped: true}, nil
+			return e.runGated(ctx, workDir, argv, true)
 		}
+	}
+	return e.runGated(ctx, workDir, argv, false)
+}
+
+// RunApproved runs safety gates then either skips execution (dry-run / preview) or invokes git.
+// Approval must be enforced by the caller (e.g. [runtime.Pipeline]); [Executor.Run] is the convenience path that includes approval.
+func (e *Executor) RunApproved(ctx context.Context, workDir string, argv []string, skipExecution bool) (RunResult, error) {
+	return e.runGated(ctx, workDir, argv, skipExecution)
+}
+
+func (e *Executor) runGated(ctx context.Context, workDir string, argv []string, skipExecution bool) (RunResult, error) {
+	if e == nil {
+		return RunResult{}, &KindError{Kind: KindInvalidRepoRoot, Msg: "nil executor"}
+	}
+	if err := pathcheck.MustBeContainedUnderRoot(e.repoRoot, workDir); err != nil {
+		return RunResult{}, &KindError{Kind: KindOutsideRepo, Msg: fmt.Sprintf("workdir outside repo: %v", err)}
+	}
+	if isDestructive(argv) {
+		return RunResult{}, &KindError{Kind: KindDestructiveBlocked, Msg: fmt.Sprintf("destructive invocation blocked: %v", argv)}
+	}
+	if !allowlisted(argv) {
+		return RunResult{}, &KindError{Kind: KindNotAllowed, Msg: fmt.Sprintf("subcommand not allowlisted: %v", argv)}
+	}
+	if skipExecution {
+		return RunResult{Skipped: true}, nil
 	}
 
 	cmd := exec.CommandContext(ctx, e.gitPath, argv...)
