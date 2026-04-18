@@ -102,7 +102,7 @@ func TestExecute_InvalidOrEmptyMessage(t *testing.T) {
 		}
 	}
 
-	long := strings.Repeat("x", policy.MaxCommitMessageRunes()+1)
+	long := strings.Repeat("x", policy.MaxCommitMessageRunes+1)
 	_, err = h.Execute(ctx, root, commit_changes.Params{Message: long})
 	if err == nil {
 		t.Fatal("expected error for overlong message")

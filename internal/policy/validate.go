@@ -13,6 +13,9 @@ import (
 
 const maxRefLength = 240
 
+// MaxCommitMessageRunes is the maximum allowed length of a commit message body.
+const MaxCommitMessageRunes = 65536
+
 // ValidationError describes a rejected string input (branch, tag, or ref).
 type ValidationError struct {
 	Field string
@@ -46,6 +49,27 @@ func ValidateTagName(name string) error {
 func ValidateRefName(ref string) error {
 	if err := validateRefLike("ref", ref, false); err != nil {
 		return err
+	}
+	return nil
+}
+
+// ValidateCommitMessage enforces non-empty trimmed content, length, NUL absence,
+// and rejects most control characters (multiline bodies may use newline/tab/CR).
+func ValidateCommitMessage(msg string) error {
+	s := strings.TrimSpace(msg)
+	if s == "" {
+		return &ValidationError{Field: "message", Msg: "required"}
+	}
+	if utf8.RuneCountInString(msg) > MaxCommitMessageRunes {
+		return &ValidationError{Field: "message", Msg: "exceeds maximum length"}
+	}
+	if strings.IndexByte(msg, 0) >= 0 {
+		return &ValidationError{Field: "message", Msg: "must not contain NUL"}
+	}
+	for _, r := range msg {
+		if unicode.IsControl(r) && r != '\n' && r != '\t' && r != '\r' {
+			return &ValidationError{Field: "message", Msg: "contains forbidden control characters"}
+		}
 	}
 	return nil
 }
