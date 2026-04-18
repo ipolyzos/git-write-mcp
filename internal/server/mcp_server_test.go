@@ -49,7 +49,7 @@ func TestNewMCPServerExposesExpectedTools(t *testing.T) {
 	}
 	sort.Strings(names)
 
-	want := []string{"commit_changes", "create_branch", "get_capabilities", "stage_files", "tag_revision"}
+	want := []string{"commit_changes", "create_branch", "get_capabilities", "stage_files", "tag_revision", "unstage_files"}
 	if !reflect.DeepEqual(names, want) {
 		t.Fatalf("ListTools names = %v, want %v", names, want)
 	}

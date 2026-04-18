@@ -63,6 +63,36 @@ func TestRun_AllowsRevParseInsideRepo(t *testing.T) {
 	}
 }
 
+func TestRun_AllowsResetHeadUnstagePath(t *testing.T) {
+	t.Helper()
+	root := initGitRepo(t)
+	if out, err := exec.Command("git", "-C", root, "commit", "--allow-empty", "-m", "Add repository baseline").CombinedOutput(); err != nil {
+		t.Fatalf("git commit: %v\n%s", err, out)
+	}
+	readme := filepath.Join(root, "README.md")
+	if err := os.WriteFile(readme, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ex, err := git.NewExecutor(git.ExecutorOptions{
+		RepoRoot: root,
+		Approver: alwaysApprove{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	if _, err := ex.Run(ctx, root, []string{"add", "--", "README.md"}); err != nil {
+		t.Fatal(err)
+	}
+	res, err := ex.Run(ctx, root, []string{"reset", "HEAD", "--", "README.md"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Skipped {
+		t.Fatal("unexpected skip")
+	}
+}
+
 func TestRun_BlocksDestructiveResetHard(t *testing.T) {
 	t.Helper()
 	root := initGitRepo(t)

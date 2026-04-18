@@ -15,6 +15,7 @@ import (
 	"github.com/ipolyzos/git-write-mcp/plugins/create_branch"
 	"github.com/ipolyzos/git-write-mcp/plugins/stage_files"
 	"github.com/ipolyzos/git-write-mcp/plugins/tag_revision"
+	"github.com/ipolyzos/git-write-mcp/plugins/unstage_files"
 )
 
 const stubToolDescription = "Controlled Git write operation (behavior not implemented yet)."
@@ -39,10 +40,12 @@ func NewMCPServer(version string, reg *plugin.Registry, cfg ServeConfig) *mcp.Se
 		implemented["create_branch"] = struct{}{}
 		implemented["stage_files"] = struct{}{}
 		implemented["tag_revision"] = struct{}{}
+		implemented["unstage_files"] = struct{}{}
 		commit_changes.RegisterMCPTool(s, cfg.Pipeline, cfg.RepoRoot, cfg.Actor)
 		create_branch.RegisterMCPTool(s, cfg.Pipeline, cfg.RepoRoot, cfg.Actor)
 		stage_files.RegisterMCPTool(s, cfg.Pipeline, cfg.RepoRoot, cfg.Actor)
 		tag_revision.RegisterMCPTool(s, cfg.Pipeline, cfg.RepoRoot, cfg.Actor)
+		unstage_files.RegisterMCPTool(s, cfg.Pipeline, cfg.RepoRoot, cfg.Actor)
 	}
 
 	for _, name := range reg.Names() {

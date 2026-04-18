@@ -16,7 +16,7 @@ import (
 func TestCapabilitiesDocument_WriteTools(t *testing.T) {
 	t.Helper()
 	got := plugin.DocumentCapabilities()
-	want := []string{"commit_changes", "create_branch", "stage_files", "tag_revision"}
+	want := []string{"commit_changes", "create_branch", "stage_files", "tag_revision", "unstage_files"}
 	if !slices.Equal(got.WriteTools, want) {
 		t.Fatalf("WriteTools = %v, want %v", got.WriteTools, want)
 	}

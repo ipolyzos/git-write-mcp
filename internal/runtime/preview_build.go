@@ -34,7 +34,7 @@ func BuildDryRunPreview(req *MutationRequest) DryRunPreview {
 
 func previewTargets(req *MutationRequest) []string {
 	switch req.Action {
-	case "stage_files":
+	case "stage_files", "unstage_files":
 		if req.Target == "" {
 			return nil
 		}
@@ -108,6 +108,16 @@ func previewEffectSummary(req *MutationRequest) string {
 			quoted[i] = strconv.Quote(t)
 		}
 		return fmt.Sprintf(`Would stage %d path(s) for the next commit: %s.`, len(targets), strings.Join(quoted, ", "))
+	case "unstage_files":
+		targets := previewTargets(req)
+		if len(targets) == 0 {
+			return `Would remove paths from the Git index (working tree unchanged).`
+		}
+		quoted := make([]string, len(targets))
+		for i, t := range targets {
+			quoted[i] = strconv.Quote(t)
+		}
+		return fmt.Sprintf(`Would unstage %d path(s) from the index (working tree unchanged): %s.`, len(targets), strings.Join(quoted, ", "))
 	case "commit_changes":
 		return `Would create a new commit with the staged changes using the provided message.`
 	case "tag_revision":

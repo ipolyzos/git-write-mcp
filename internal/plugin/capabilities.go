@@ -28,7 +28,7 @@ type Behaviors struct {
 // Slice fields are lexicographically sorted for stable JSON.
 func DocumentCapabilities() Capabilities {
 	return Capabilities{
-		WriteTools: []string{"commit_changes", "create_branch", "stage_files", "tag_revision"},
+		WriteTools: []string{"commit_changes", "create_branch", "stage_files", "tag_revision", "unstage_files"},
 		Behaviors: Behaviors{
 			ApprovalRequired:  true,
 			AuditTrailEnabled: true,
