@@ -2,8 +2,5 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-// Package git defines boundaries for allowlisted Git CLI invocation (no shell, allowlist only; logic later).
+// Package git defines allowlisted Git CLI invocation via [Executor] (no shell; argv passed verbatim).
 package git
-
-// Executor runs allowlisted git commands via the external git binary (not implemented in bootstrap).
-type Executor struct{}
