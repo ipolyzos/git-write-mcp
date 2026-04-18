@@ -22,24 +22,19 @@ import (
 func TestPipeline_DryRunDoesNotInvokeGitBinary(t *testing.T) {
 	t.Helper()
 	root := initGitRepo(t)
-	ex, err := git.NewExecutor(git.ExecutorOptions{RepoRoot: root})
-	if err != nil {
-		t.Fatal(err)
-	}
 	var gitCalls int
 	p := &runtime.Pipeline{
 		RepoRoot: root,
 		Policy:   mustEngine(t, root),
 		Approver: alwaysApproveDryRun{},
-		Executor: ex,
-		Audit:    audit.NewLogger(auditSinkFunc(func(context.Context, audit.Record) error { return nil })),
-		GitPhase: gitPhaseFunc(func(ctx context.Context, workDir string, argv []string, skipExecution bool) (git.RunResult, error) {
+		Git: runnerFunc(func(ctx context.Context, workDir string, argv []string, skipExecution bool) (git.RunResult, error) {
 			gitCalls++
 			if !skipExecution {
 				t.Fatal("expected skipExecution true for dry-run pipeline path")
 			}
 			return git.RunResult{Skipped: true}, nil
 		}),
+		Audit: audit.NewLogger(audit.SinkFunc(func(context.Context, audit.Record) error { return nil })),
 	}
 	ctx := context.Background()
 	req := runtime.MutationRequest{
@@ -58,7 +53,7 @@ func TestPipeline_DryRunDoesNotInvokeGitBinary(t *testing.T) {
 		t.Fatal("expected dry-run preview")
 	}
 	if gitCalls != 1 {
-		t.Fatalf("git phase calls = %d, want 1 (gated skip)", gitCalls)
+		t.Fatalf("git runner calls = %d, want 1 (gated skip)", gitCalls)
 	}
 }
 
@@ -74,9 +69,11 @@ func TestPipeline_EmitAuditContainsRequiredFields(t *testing.T) {
 		RepoRoot: root,
 		Policy:   mustEngine(t, root),
 		Approver: alwaysApproveExec{},
-		Executor: ex,
-		Audit:    audit.NewLogger(auditSinkFunc(func(_ context.Context, r audit.Record) error { got = r; return nil })),
-		GitPhase: ex,
+		Git:      ex,
+		Audit: audit.NewLogger(audit.SinkFunc(func(_ context.Context, r audit.Record) error {
+			got = r
+			return nil
+		})),
 	}
 	ctx := context.Background()
 	req := runtime.MutationRequest{
@@ -121,9 +118,8 @@ func TestPipeline_ApproverNilRejected(t *testing.T) {
 		RepoRoot: root,
 		Policy:   mustEngine(t, root),
 		Approver: nil,
-		Executor: ex,
-		Audit:    audit.NewLogger(auditSinkFunc(func(context.Context, audit.Record) error { return nil })),
-		GitPhase: ex,
+		Git:      ex,
+		Audit:    audit.NewLogger(audit.SinkFunc(func(context.Context, audit.Record) error { return nil })),
 	}
 	ctx := context.Background()
 	req := runtime.MutationRequest{
@@ -142,21 +138,16 @@ func TestPipeline_ApproverNilRejected(t *testing.T) {
 func TestPipeline_RequestValidateFailsBeforeGit(t *testing.T) {
 	t.Helper()
 	root := initGitRepo(t)
-	ex, err := git.NewExecutor(git.ExecutorOptions{RepoRoot: root})
-	if err != nil {
-		t.Fatal(err)
-	}
 	var gitCalls int
 	p := &runtime.Pipeline{
 		RepoRoot: root,
 		Policy:   mustEngine(t, root),
 		Approver: alwaysApproveExec{},
-		Executor: ex,
-		Audit:    audit.NewLogger(auditSinkFunc(func(context.Context, audit.Record) error { return nil })),
-		GitPhase: gitPhaseFunc(func(context.Context, string, []string, bool) (git.RunResult, error) {
+		Git: runnerFunc(func(context.Context, string, []string, bool) (git.RunResult, error) {
 			gitCalls++
 			return git.RunResult{}, nil
 		}),
+		Audit: audit.NewLogger(audit.SinkFunc(func(context.Context, audit.Record) error { return nil })),
 	}
 	ctx := context.Background()
 	req := runtime.MutationRequest{
@@ -169,13 +160,19 @@ func TestPipeline_RequestValidateFailsBeforeGit(t *testing.T) {
 			return errors.New("boom")
 		},
 	}
-	_, err = p.Execute(ctx, req)
+	_, err := p.Execute(ctx, req)
 	if err == nil || !strings.Contains(err.Error(), "boom") {
 		t.Fatalf("got %v", err)
 	}
 	if gitCalls != 0 {
 		t.Fatalf("git calls = %d", gitCalls)
 	}
+}
+
+type runnerFunc func(context.Context, string, []string, bool) (git.RunResult, error)
+
+func (f runnerFunc) RunApproved(ctx context.Context, wd string, argv []string, skip bool) (git.RunResult, error) {
+	return f(ctx, wd, argv, skip)
 }
 
 type alwaysApproveDryRun struct{}
@@ -188,16 +185,6 @@ type alwaysApproveExec struct{}
 
 func (alwaysApproveExec) Approve(context.Context, policy.InvocationRequest) (policy.Decision, error) {
 	return policy.Decision{Approved: true, DryRun: false}, nil
-}
-
-type auditSinkFunc func(context.Context, audit.Record) error
-
-func (f auditSinkFunc) Emit(ctx context.Context, r audit.Record) error { return f(ctx, r) }
-
-type gitPhaseFunc func(context.Context, string, []string, bool) (git.RunResult, error)
-
-func (f gitPhaseFunc) RunApproved(ctx context.Context, wd string, argv []string, skip bool) (git.RunResult, error) {
-	return f(ctx, wd, argv, skip)
 }
 
 func mustEngine(t *testing.T, root string) *policy.Engine {
