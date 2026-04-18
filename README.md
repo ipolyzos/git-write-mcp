@@ -91,7 +91,7 @@ For code changes:
 | `internal/git` | Allowlisted `Executor` (direct `exec`, no shell) |
 | `internal/policy` | Ref/branch/tag validation, repo path containment, Approver extension |
 | `internal/audit` | Structured audit `Record`, `Sink`, `Logger` |
-| `plugins/*` | Tool plugins (`create_branch` implemented; others stub) |
+| `plugins/*` | Tool plugins (`create_branch`, `stage_files` implemented; others stub) |
 
 ---
 
@@ -152,6 +152,34 @@ Example dry-run:
   "dry_run_requested": true,
   "mode": "dry-run",
   "dry_run": true
+}
+```
+
+---
+
+## Tool: `stage_files`
+
+Stages paths with `git add -- <path>...`. Each path is trimmed, resolved relative to the repository root or validated if absolute, then checked with `policy.Engine.MustBeContainedUnderRepo` (rejects traversal and paths outside `GIT_WRITE_MCP_REPO_ROOT`). Duplicate paths after normalization are de-duplicated; argv order is sorted for determinism. Execution uses `runtime.Pipeline` (approval, dry-run preview, gated git, audit).
+
+**Inputs (JSON):**
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `paths` | yes | Non-empty array of paths (repo-relative or absolute paths inside the repo). |
+| `dry_run` | no | If `true`, validation + preview only (nothing staged). |
+
+**Structured output (`ToolResult`):** `ok`, `mode` (`execute` \| `dry-run` \| `blocked`), `paths` (validated relative paths in sorted order), `dry_run_requested`, `dry_run`, `git_stdout`, `git_stderr`, `error`.
+
+Example success (execute):
+
+```json
+{
+  "ok": true,
+  "paths": ["src/file.go"],
+  "dry_run_requested": false,
+  "mode": "execute",
+  "git_stdout": "",
+  "git_stderr": ""
 }
 ```
 

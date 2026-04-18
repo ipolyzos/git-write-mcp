@@ -12,6 +12,7 @@ import (
 
 	"github.com/ipolyzos/git-write-mcp/internal/plugin"
 	"github.com/ipolyzos/git-write-mcp/plugins/create_branch"
+	"github.com/ipolyzos/git-write-mcp/plugins/stage_files"
 )
 
 const stubToolDescription = "Controlled Git write operation (behavior not implemented yet)."
@@ -29,7 +30,9 @@ func NewMCPServer(version string, reg *plugin.Registry, cfg ServeConfig) *mcp.Se
 	implemented := map[string]struct{}{}
 	if cfg.Pipeline != nil && cfg.RepoRoot != "" {
 		implemented["create_branch"] = struct{}{}
+		implemented["stage_files"] = struct{}{}
 		create_branch.RegisterMCPTool(s, cfg.Pipeline, cfg.RepoRoot, cfg.Actor)
+		stage_files.RegisterMCPTool(s, cfg.Pipeline, cfg.RepoRoot, cfg.Actor)
 	}
 
 	for _, name := range reg.Names() {
