@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`policy.EvaluateApproval`** / **`ApprovalCheckInput`** / **`ApprovalDecision`**: centralized mutation approval with typed deny reasons (`missing_context`, `unsupported_action`, `no_approver`, `rejected`, `approver_error`); **`runtime.Pipeline`** uses this path before git runs.
+
 ## [0.1.0] - 2026-04-18
 
 First release of the git-write-mcp stdio MCP server with four mutation tools,
