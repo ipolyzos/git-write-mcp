@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`policy.ValidateRepoState`** with **`RepoStateCheckInput`**, **`RepoStateResult`**, **`RepoValidationCode`**, and **`policy.ErrRepoState`**: deterministic structured checks for policy engine root alignment, repository path existence, workdir containment, optional ref syntax and existence, detached-HEAD policy, and per-action preconditions (e.g. staged index for commits). **`policy.RepoGitProbe`** abstracts read-only git inspection; **`git.NewRepoProbe`** implements it via narrow allowlisted argv.
+- **`runtime.Pipeline.RepoProbe`** and **`runtime.MutationRequest`** fields **`FromRef`**, **`TargetRef`**, **`RejectDetachedHEAD`**, **`RequireStagedIndex`** wire repo-state validation after request validation and before approval. Server **`BuildServeConfig`** sets **`RepoProbe: git.NewRepoProbe(ex)`**.
 - **`policy.EvaluateApproval`** / **`ApprovalCheckInput`** / **`ApprovalDecision`**: centralized mutation approval with typed deny reasons (`missing_context`, `unsupported_action`, `no_approver`, `rejected`, `approver_error`); **`runtime.Pipeline`** uses this path before git runs.
+
+### Changed
+
+- **`runtime.Pipeline.Execute`**: repository boundary enforcement is folded into **`policy.ValidateRepoState`** (replacing the standalone **`MustBeContainedUnderRepo`** call). Mutations that fail repo-state checks return **`policy.ErrRepoState`** before approval.
 
 ## [0.1.0] - 2026-04-18
 
