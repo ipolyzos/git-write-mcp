@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`audit.Append`** / **`AppendInput`** / **`AppendMetadata`**: standard append path for mutation audit lines; **`Record`** gains **`audit_id`** (generated when unset) and optional **`correlation_id`**. **`runtime.Result.Audit`** echoes ids for callers; **`MutationRequest.CorrelationID`** passes through for tracing.
 - **Shared dry-run preview**: **`runtime.BuildDryRunPreview`** and extended **`runtime.DryRunPreview`** (`action`, `targets`, `secondary_refs`, **`git_commands`** printable line with `git -C`, **`effect_summary`**). Populated on every dry-run **`Pipeline.Execute`** result. Plugin **`ToolResult`** types (`create_branch`, `stage_files`, `commit_changes`, `tag_revision`) expose **`dry_run_preview`** when **`mode`** is **`dry-run`**.
 - **`policy.ValidateRepoState`** with **`RepoStateCheckInput`**, **`RepoStateResult`**, **`RepoValidationCode`**, and **`policy.ErrRepoState`**: deterministic structured checks for policy engine root alignment, repository path existence, workdir containment, optional ref syntax and existence, detached-HEAD policy, and per-action preconditions (e.g. staged index for commits). **`policy.RepoGitProbe`** abstracts read-only git inspection; **`git.NewRepoProbe`** implements it via narrow allowlisted argv.
 - **`runtime.Pipeline.RepoProbe`** and **`runtime.MutationRequest`** fields **`FromRef`**, **`TargetRef`**, **`RejectDetachedHEAD`**, **`RequireStagedIndex`** wire repo-state validation after request validation and before approval. Server **`BuildServeConfig`** sets **`RepoProbe: git.NewRepoProbe(ex)`**.
@@ -16,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **`runtime.Pipeline.Execute`**: repository boundary enforcement is folded into **`policy.ValidateRepoState`** (replacing the standalone **`MustBeContainedUnderRepo`** call). Mutations that fail repo-state checks return **`policy.ErrRepoState`** before approval.
+- **`runtime.Pipeline.Execute`**: records mutations via **`audit.Append`**; sink failures return **`fmt.Errorf("audit: %w", err)`** after **`Result.Audit`** is populated. Repository boundary enforcement is folded into **`policy.ValidateRepoState`** (replacing the standalone **`MustBeContainedUnderRepo`** call). Mutations that fail repo-state checks return **`policy.ErrRepoState`** before approval.
 
 ## [0.1.0] - 2026-04-18
 

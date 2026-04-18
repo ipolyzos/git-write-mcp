@@ -4,7 +4,10 @@
 
 package runtime
 
-import "github.com/ipolyzos/git-write-mcp/internal/git"
+import (
+	"github.com/ipolyzos/git-write-mcp/internal/audit"
+	"github.com/ipolyzos/git-write-mcp/internal/git"
+)
 
 // MutationRequest is input to [Pipeline.Execute] for one mutating tool operation.
 // Execute receives a pointer so [MutationRequest.Validate] may set GitArgs and Target
@@ -28,13 +31,17 @@ type MutationRequest struct {
 	// DryRunRequested asks for a preview only (no git mutation); combined with [policy.Decision.DryRun].
 	DryRunRequested bool
 
+	// CorrelationID optional trace key stored on audit records ([audit.Append]).
+	CorrelationID string
+
 	// Validate is optional request-level validation (tool-specific inputs).
 	Validate func() error
 }
 
 // Result is the deterministic structured output from [Pipeline.Execute].
 type Result struct {
-	OK            bool           `json:"ok"`
-	DryRunPreview *DryRunPreview `json:"dry_run_preview,omitempty"`
-	GitResult     git.RunResult  `json:"git_result,omitempty"`
+	OK            bool                 `json:"ok"`
+	DryRunPreview *DryRunPreview       `json:"dry_run_preview,omitempty"`
+	GitResult     git.RunResult        `json:"git_result,omitempty"`
+	Audit         audit.AppendMetadata `json:"audit,omitempty"`
 }
