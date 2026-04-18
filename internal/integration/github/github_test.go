@@ -296,8 +296,117 @@ func TestClient_CreatePullRequest_Success(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if pr.Number != 5 || pr.HTMLURL != "https://example.com/5" || pr.Title != "Hi" || pr.HeadSHA != "sha1" || pr.State != "open" {
+	if pr.Number != 5 || pr.HeadSHA != "sha1" || pr.Title != "Hi" || pr.HTMLURL != "https://example.com/5" || pr.State != "open" {
 		t.Fatalf("%+v", pr)
+	}
+}
+
+func TestClient_GetPullRequestStatus_Success(t *testing.T) {
+	t.Helper()
+	ctx := context.Background()
+	cfg := gh.Config{
+		Repository: gh.Repository{Owner: "o", Name: "r"},
+		Token:      "t",
+	}
+	prJSON := `{"number":3,"title":"T","state":"open","merged":false,"draft":false,"mergeable":true,"mergeable_state":"clean","html_url":"https://ex/3","head":{"ref":"feature/x","sha":"shaabc"},"base":{"ref":"develop"}}`
+	statJSON := `{"state":"success","total_count":2,"statuses":[{"state":"success","context":"ci"},{"state":"failure","context":"audit"}]}`
+	revJSON := `[{"state":"APPROVED"},{"state":"COMMENTED"}]`
+	cl, err := gh.NewClient(cfg, fakeHTTP(func(req *http.Request) (*http.Response, error) {
+		p := req.URL.Path
+		switch {
+		case p == "/repos/o/r/pulls/3" && req.Method == http.MethodGet:
+			return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(prJSON))}, nil
+		case p == "/repos/o/r/commits/shaabc/status":
+			return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(statJSON))}, nil
+		case p == "/repos/o/r/pulls/3/reviews":
+			return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(revJSON))}, nil
+		default:
+			t.Fatalf("unexpected %s %s", req.Method, p)
+			return nil, nil
+		}
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	st, err := cl.GetPullRequestStatus(ctx, "o", "r", 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Number != 3 || st.HeadRef != "feature/x" || st.BaseRef != "develop" || st.HeadSHA != "shaabc" {
+		t.Fatalf("%+v", st)
+	}
+	if st.MergeableState != "clean" || st.Mergeable == nil || !*st.Mergeable {
+		t.Fatalf("%+v", st)
+	}
+	if st.ChecksSummary.State != "success" || st.ChecksSummary.TotalCount != 2 || len(st.ChecksSummary.Contexts) != 2 {
+		t.Fatalf("%+v", st.ChecksSummary)
+	}
+	if st.ChecksSummary.Contexts[0].Context != "audit" || st.ChecksSummary.Contexts[1].Context != "ci" {
+		t.Fatalf("contexts must be sorted: %+v", st.ChecksSummary.Contexts)
+	}
+	if st.ReviewsSummary.Approved != 1 || st.ReviewsSummary.Commented != 1 {
+		t.Fatalf("%+v", st.ReviewsSummary)
+	}
+}
+
+func TestClient_GetPullRequestStatus_NotFound(t *testing.T) {
+	t.Helper()
+	ctx := context.Background()
+	cfg := gh.Config{
+		Repository: gh.Repository{Owner: "o", Name: "r"},
+		Token:      "t",
+	}
+	cl, err := gh.NewClient(cfg, fakeHTTP(func(req *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusNotFound,
+			Body:       io.NopCloser(strings.NewReader(`{"message":"Not Found"}`)),
+		}, nil
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = cl.GetPullRequestStatus(ctx, "o", "r", 99)
+	if !errors.Is(err, gh.ErrPullRequestNotFound) {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestClient_GetPullRequestStatus_HTTPErrorOnPR(t *testing.T) {
+	t.Helper()
+	ctx := context.Background()
+	cfg := gh.Config{
+		Repository: gh.Repository{Owner: "o", Name: "r"},
+		Token:      "t",
+	}
+	cl, err := gh.NewClient(cfg, fakeHTTP(func(req *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusInternalServerError,
+			Body:       io.NopCloser(strings.NewReader(`boom`)),
+		}, nil
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = cl.GetPullRequestStatus(ctx, "o", "r", 1)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestClient_GetPullRequestStatus_RepoMismatch(t *testing.T) {
+	t.Helper()
+	ctx := context.Background()
+	cfg := gh.Config{
+		Repository: gh.Repository{Owner: "o", Name: "r"},
+		Token:      "t",
+	}
+	cl, err := gh.NewClient(cfg, fakeHTTP(nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = cl.GetPullRequestStatus(ctx, "other", "r", 1)
+	if err == nil {
+		t.Fatal("expected error")
 	}
 }
 

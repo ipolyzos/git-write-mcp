@@ -13,6 +13,7 @@ const ToolGetCapabilities = "get_capabilities"
 // get_capabilities MCP tool.
 type Capabilities struct {
 	WriteTools        []string  `json:"write_tools"`
+	ReadTools         []string  `json:"read_tools"`
 	Behaviors         Behaviors `json:"behaviors"`
 	ExcludedReadTools []string  `json:"excluded_read_tools"`
 }
@@ -29,6 +30,7 @@ type Behaviors struct {
 func DocumentCapabilities() Capabilities {
 	return Capabilities{
 		WriteTools: []string{"commit_changes", "create_branch", "create_pull_request", "push_branch", "stage_files", "tag_revision", "unstage_files"},
+		ReadTools:  []string{"get_pull_request_status"},
 		Behaviors: Behaviors{
 			ApprovalRequired:  true,
 			AuditTrailEnabled: true,
