@@ -15,7 +15,7 @@ func TestBootstrapRegistersExpectedPluginNames(t *testing.T) {
 	t.Helper()
 	b := server.NewBootstrap()
 	got := b.PluginNames()
-	want := []string{"commit_changes", "create_branch", "stage_files", "tag_revision", "unstage_files"}
+	want := []string{"commit_changes", "create_branch", "push_branch", "stage_files", "tag_revision", "unstage_files"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("PluginNames() = %v, want %v", got, want)
 	}

@@ -190,6 +190,87 @@ func TestRun_DryRunSkipsGitInvocation(t *testing.T) {
 	}
 }
 
+func TestRun_AllowsPushRemoteBranch(t *testing.T) {
+	t.Helper()
+	ctx := context.Background()
+	bare := filepath.Join(t.TempDir(), "remote.git")
+	if err := os.MkdirAll(bare, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := exec.Command("git", "init", "--bare", bare).CombinedOutput(); err != nil {
+		t.Fatalf("git init --bare: %v\n%s", err, out)
+	}
+	work := filepath.Join(t.TempDir(), "work")
+	if err := os.MkdirAll(work, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{
+		{"git", "-C", work, "init"},
+		{"git", "-C", work, "config", "user.email", "t@t"},
+		{"git", "-C", work, "config", "user.name", "t"},
+	} {
+		if err := exec.Command(args[0], args[1:]...).Run(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if out, err := exec.Command("git", "-C", work, "commit", "--allow-empty", "-m", "Add repository baseline").CombinedOutput(); err != nil {
+		t.Fatalf("commit: %v\n%s", err, out)
+	}
+	if out, err := exec.Command("git", "-C", work, "remote", "add", "origin", bare).CombinedOutput(); err != nil {
+		t.Fatalf("remote: %v\n%s", err, out)
+	}
+	if out, err := exec.Command("git", "-C", work, "checkout", "-b", "feature/push-exec").CombinedOutput(); err != nil {
+		t.Fatalf("branch: %v\n%s", err, out)
+	}
+	if out, err := exec.Command("git", "-C", work, "commit", "--allow-empty", "-m", "Add branch tip").CombinedOutput(); err != nil {
+		t.Fatalf("commit: %v\n%s", err, out)
+	}
+	ex, err := git.NewExecutor(git.ExecutorOptions{RepoRoot: work, Approver: alwaysApprove{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = ex.Run(ctx, work, []string{"push", "origin", "feature/push-exec"})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestRun_BlocksPushForce(t *testing.T) {
+	t.Helper()
+	root := initGitRepo(t)
+	ex, err := git.NewExecutor(git.ExecutorOptions{RepoRoot: root, Approver: alwaysApprove{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	_, err = ex.Run(ctx, root, []string{"push", "--force", "origin", "main"})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	var ke *git.KindError
+	if !errors.As(err, &ke) || ke.Kind != git.KindDestructiveBlocked {
+		t.Fatalf("got %v, want KindDestructiveBlocked", err)
+	}
+}
+
+func TestRun_BlocksNonNarrowPush(t *testing.T) {
+	t.Helper()
+	root := initGitRepo(t)
+	ex, err := git.NewExecutor(git.ExecutorOptions{RepoRoot: root, Approver: alwaysApprove{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	_, err = ex.Run(ctx, root, []string{"push", "origin", "a", "b"})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	var ke *git.KindError
+	if !errors.As(err, &ke) || ke.Kind != git.KindDestructiveBlocked {
+		t.Fatalf("got %v, want KindDestructiveBlocked", err)
+	}
+}
+
 func TestRun_RejectsWorkDirOutsideRepo(t *testing.T) {
 	t.Helper()
 	root := initGitRepo(t)

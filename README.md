@@ -19,7 +19,7 @@ Provide MCP tools that can **mutate** a Git repository (branch, index, commits, 
 
 | In scope (this MCP) | Out of scope (use a read Git MCP or the host) |
 |---------------------|-----------------------------------------------|
-| `create_branch`, `stage_files`, `unstage_files`, `commit_changes`, `tag_revision` | `git_status`, `git_diff`, `git_log`, `git_show`, `git_blame`, `git_branch_list` |
+| `create_branch`, `push_branch`, `stage_files`, `unstage_files`, `commit_changes`, `tag_revision` | `git_status`, `git_diff`, `git_log`, `git_show`, `git_blame`, `git_branch_list` |
 | Allowlisted `git` invocations; no freestyle shell | Ad-hoc shell, pipe chains, or user-defined commands |
 | Policy + audit around each mutation | History rewriting / destructive defaults (must stay off by default) |
 
@@ -94,7 +94,7 @@ CI and **`make test`** / **`make ci`** run **`go test -race ./...`** (data race 
 | `internal/policy` | Ref/branch/tag/commit-message validation, repo path containment, Approver extension |
 | `internal/audit` | Structured audit `Record`, `Sink`, `Logger` |
 | `internal/integration/github` | GitHub REST foundation (`Config`, `Client`, `Integration`); see `docs/github-integration.md` |
-| `plugins/*` | Tool plugins (`create_branch`, `stage_files`, `unstage_files`, `commit_changes`, `tag_revision`) |
+| `plugins/*` | Tool plugins (`create_branch`, `push_branch`, `stage_files`, `unstage_files`, `commit_changes`, `tag_revision`) |
 
 ---
 
@@ -107,6 +107,7 @@ The process must know which repository to operate on and how approvals are decid
 | `GIT_WRITE_MCP_REPO_ROOT` | **Required** (except `-version`). Absolute or relative path to the Git repository root. |
 | `GIT_WRITE_MCP_AUTO_APPROVE` | If `1`, `true`, `yes`, or `on`, mutations use `policy.AlwaysApprove`. Otherwise `policy.DenyAll` (default safe). |
 | `GIT_WRITE_MCP_ACTOR` | Optional label stored on audit records (default: `mcp`). |
+| `GIT_WRITE_MCP_ALLOWED_PUSH_REMOTES` | Comma-separated remote names allowed for **`push_branch`** (default: `origin`). Example: `origin,upstream`. |
 
 Example:
 
@@ -155,6 +156,36 @@ Example dry-run:
   "dry_run_requested": true,
   "mode": "dry-run",
   "dry_run": true
+}
+```
+
+---
+
+## Tool: `push_branch`
+
+Pushes the **current** branch to an **allowlisted** remote using only `git push <remote> <branch>`: **no** `--force`, **no** refspecs (`:`), and **no** extra arguments. `policy.ValidateBranchName` applies to `branch_name`; the current `HEAD` must match that branch. Default `remote` is `origin` if omitted. Allowlist comes from `GIT_WRITE_MCP_ALLOWED_PUSH_REMOTES` (see Configuration). Uses `runtime.Pipeline` (approval, dry-run preview, gated git, audit).
+
+**Inputs (JSON):**
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `branch_name` | yes | Branch to push; must be the checked-out branch. |
+| `remote` | no | Remote name (default `origin`); must appear in the allowlist. |
+| `dry_run` | no | If `true`, validation + preview only (nothing pushed). |
+
+**Structured output (`ToolResult`):** `ok`, `mode` (`execute` \| `dry-run` \| `blocked`), `branch_name`, `remote`, `dry_run_requested`, `dry_run`, `dry_run_preview`, `git_stdout`, `git_stderr`, `error`.
+
+Example success (execute):
+
+```json
+{
+  "ok": true,
+  "branch_name": "feature/foo",
+  "remote": "origin",
+  "dry_run_requested": false,
+  "mode": "execute",
+  "git_stdout": "",
+  "git_stderr": ""
 }
 ```
 

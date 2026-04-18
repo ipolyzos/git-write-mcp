@@ -26,6 +26,23 @@ func resetUnstageIndexPathsOnly(argv []string) bool {
 	return true
 }
 
+// pushRemoteBranchOnly allows only `git push <remote> <branch>` with no flags,
+// no refspec (no ':'), matching the push_branch tool contract (no force).
+func pushRemoteBranchOnly(argv []string) bool {
+	if len(argv) != 3 || argv[0] != "push" {
+		return false
+	}
+	for _, a := range argv[1:] {
+		if strings.TrimSpace(a) == "" || strings.HasPrefix(a, "-") {
+			return false
+		}
+		if strings.Contains(a, ":") {
+			return false
+		}
+	}
+	return true
+}
+
 // allowedFirst maps the first argv token after "git" to permitted subcommands.
 // Narrow set; expand deliberately as tools are implemented.
 var allowedFirst = map[string]struct{}{
@@ -34,7 +51,6 @@ var allowedFirst = map[string]struct{}{
 	"checkout":     {},
 	"commit":       {},
 	"merge":        {},
-	"push":         {},
 	"rev-parse":    {},
 	"stash":        {},
 	"switch":       {},
@@ -52,6 +68,8 @@ func allowlisted(argv []string) bool {
 		return len(argv) == 3 && argv[1] == "--cached" && argv[2] == "--quiet"
 	case "reset":
 		return resetUnstageIndexPathsOnly(argv)
+	case "push":
+		return pushRemoteBranchOnly(argv)
 	default:
 		_, ok := allowedFirst[argv[0]]
 		return ok
