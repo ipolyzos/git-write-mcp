@@ -60,6 +60,9 @@ func TestPipeline_DryRunDoesNotInvokeGitBinary(t *testing.T) {
 	if gitCalls != 1 {
 		t.Fatalf("git runner calls = %d, want 1 (gated skip)", gitCalls)
 	}
+	if res.Audit.AuditID == "" {
+		t.Fatal("expected audit metadata on dry-run")
+	}
 }
 
 func TestPipeline_EmitAuditContainsRequiredFields(t *testing.T) {
@@ -111,6 +114,73 @@ func TestPipeline_EmitAuditContainsRequiredFields(t *testing.T) {
 	if got.Outcome != audit.OutcomeSuccess {
 		t.Fatalf("outcome = %q", got.Outcome)
 	}
+	if got.AuditID == "" {
+		t.Fatal("missing audit_id on record")
+	}
+}
+
+func TestPipeline_ResultAuditMetadataPopulated(t *testing.T) {
+	t.Helper()
+	root := initGitRepo(t)
+	ex, err := git.NewExecutor(git.ExecutorOptions{RepoRoot: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := &runtime.Pipeline{
+		RepoRoot:  root,
+		Policy:    mustEngine(t, root),
+		RepoProbe: git.NewRepoProbe(ex),
+		Approver:  alwaysApproveExec{},
+		Git:       ex,
+		Audit:     audit.NewLogger(audit.SinkFunc(func(context.Context, audit.Record) error { return nil })),
+	}
+	ctx := context.Background()
+	req := &runtime.MutationRequest{
+		Actor:         "a",
+		Action:        "create_branch",
+		Target:        "feature/meta",
+		WorkDir:       root,
+		GitArgs:       []string{"branch", "feature/meta"},
+		CorrelationID: "corr-pipeline-1",
+	}
+	res, err := p.Execute(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Audit.AuditID == "" {
+		t.Fatal("expected audit_id in result")
+	}
+	if res.Audit.CorrelationID != "corr-pipeline-1" {
+		t.Fatalf("correlation: %+v", res.Audit)
+	}
+}
+
+func TestPipeline_AuditSinkFailure_ReturnsError(t *testing.T) {
+	t.Helper()
+	root := initGitRepo(t)
+	wantErr := errors.New("audit sink unavailable")
+	p := &runtime.Pipeline{
+		RepoRoot:  root,
+		Policy:    mustEngine(t, root),
+		RepoProbe: git.NewRepoProbe(mustExec(t, root)),
+		Approver:  alwaysApproveExec{},
+		Git: runnerFunc(func(context.Context, string, []string, bool) (git.RunResult, error) {
+			return git.RunResult{}, nil
+		}),
+		Audit: audit.NewLogger(audit.SinkFunc(func(context.Context, audit.Record) error { return wantErr })),
+	}
+	ctx := context.Background()
+	req := &runtime.MutationRequest{
+		Actor:   "a",
+		Action:  "create_branch",
+		Target:  "feature/sink-fail",
+		WorkDir: root,
+		GitArgs: []string{"branch", "feature/sink-fail"},
+	}
+	_, err := p.Execute(ctx, req)
+	if err == nil || !errors.Is(err, wantErr) {
+		t.Fatalf("want sink error wrapped, got %v", err)
+	}
 }
 
 func TestPipeline_ApproverNilRejected(t *testing.T) {
@@ -136,9 +206,12 @@ func TestPipeline_ApproverNilRejected(t *testing.T) {
 		WorkDir: root,
 		GitArgs: []string{"branch", "feature/nil-appr"},
 	}
-	_, err = p.Execute(ctx, req)
+	res, err := p.Execute(ctx, req)
 	if !errors.Is(err, policy.ErrApprovalRequired) {
 		t.Fatalf("got %v", err)
+	}
+	if res.Audit.AuditID == "" {
+		t.Fatal("expected audit metadata when approval denied")
 	}
 }
 

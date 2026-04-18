@@ -38,7 +38,7 @@ type Pipeline struct {
 // 3. centralized approval
 // 4. dry-run preview + gated skip (no mutation)
 // 5. git execution
-// 6. audit record
+// 6. audit record ([audit.Append])
 // 7. structured result
 func (p *Pipeline) Execute(ctx context.Context, req *MutationRequest) (Result, error) {
 	if p == nil {
@@ -49,28 +49,24 @@ func (p *Pipeline) Execute(ctx context.Context, req *MutationRequest) (Result, e
 	}
 
 	ts := time.Now().UTC()
-	rec := audit.Record{
-		Timestamp: ts,
-		Actor:     req.Actor,
-		Action:    req.Action,
-		Target:    req.Target,
-	}
 
 	if p.Git == nil {
-		rec.Mode = audit.ModeBlocked
-		rec.Outcome = audit.OutcomeFailure
-		rec.Detail = "nil git runner"
-		p.emit(ctx, rec)
-		return Result{}, errors.New("runtime: nil git runner")
+		meta, aerr := p.appendAudit(ctx, req, ts, audit.ModeBlocked, audit.OutcomeFailure, "nil git runner")
+		res := Result{Audit: meta}
+		if aerr != nil {
+			return res, fmt.Errorf("audit: %w", aerr)
+		}
+		return res, errors.New("runtime: nil git runner")
 	}
 
 	if req.Validate != nil {
 		if err := req.Validate(); err != nil {
-			rec.Mode = audit.ModeBlocked
-			rec.Outcome = audit.OutcomeFailure
-			rec.Detail = err.Error()
-			p.emit(ctx, rec)
-			return Result{}, err
+			meta, aerr := p.appendAudit(ctx, req, ts, audit.ModeBlocked, audit.OutcomeFailure, err.Error())
+			res := Result{Audit: meta}
+			if aerr != nil {
+				return res, fmt.Errorf("audit: %w", aerr)
+			}
+			return res, err
 		}
 	}
 
@@ -89,11 +85,12 @@ func (p *Pipeline) Execute(ctx context.Context, req *MutationRequest) (Result, e
 			RequireStagedIndex: req.RequireStagedIndex,
 		})
 		if !rs.OK {
-			rec.Mode = audit.ModeBlocked
-			rec.Outcome = audit.OutcomeFailure
-			rec.Detail = rs.Detail
-			p.emit(ctx, rec)
-			return Result{}, fmt.Errorf("%w: %v", policy.ErrRepoState, rs.Detail)
+			meta, aerr := p.appendAudit(ctx, req, ts, audit.ModeBlocked, audit.OutcomeFailure, rs.Detail)
+			res := Result{Audit: meta}
+			if aerr != nil {
+				return res, fmt.Errorf("audit: %w", aerr)
+			}
+			return res, fmt.Errorf("%w: %v", policy.ErrRepoState, rs.Detail)
 		}
 	}
 
@@ -106,11 +103,12 @@ func (p *Pipeline) Execute(ctx context.Context, req *MutationRequest) (Result, e
 		DryRunRequested: req.DryRunRequested,
 	})
 	if !dec.Allowed {
-		rec.Mode = audit.ModeBlocked
-		rec.Outcome = audit.OutcomeFailure
-		rec.Detail = dec.DenyDetail
-		p.emit(ctx, rec)
-		return Result{}, policy.ErrApprovalFromDecision(dec)
+		meta, aerr := p.appendAudit(ctx, req, ts, audit.ModeBlocked, audit.OutcomeFailure, dec.DenyDetail)
+		res := Result{Audit: meta}
+		if aerr != nil {
+			return res, fmt.Errorf("audit: %w", aerr)
+		}
+		return res, policy.ErrApprovalFromDecision(dec)
 	}
 
 	skipExec := dec.DryRun || req.DryRunRequested
@@ -120,34 +118,47 @@ func (p *Pipeline) Execute(ctx context.Context, req *MutationRequest) (Result, e
 	if skipExec {
 		gr, err := p.Git.RunApproved(ctx, req.WorkDir, req.GitArgs, true)
 		if err != nil {
-			rec.Mode = audit.ModeBlocked
-			rec.Outcome = audit.OutcomeFailure
-			rec.Detail = err.Error()
-			p.emit(ctx, rec)
-			return Result{DryRunPreview: preview, GitResult: gr}, err
+			meta, aerr := p.appendAudit(ctx, req, ts, audit.ModeBlocked, audit.OutcomeFailure, err.Error())
+			res := Result{DryRunPreview: preview, GitResult: gr, Audit: meta}
+			if aerr != nil {
+				return res, fmt.Errorf("audit: %w", aerr)
+			}
+			return res, err
 		}
-		rec.Mode = audit.ModeDryRun
-		rec.Outcome = audit.OutcomeSuccess
-		p.emit(ctx, rec)
-		return Result{OK: true, DryRunPreview: preview, GitResult: gr}, nil
+		meta, aerr := p.appendAudit(ctx, req, ts, audit.ModeDryRun, audit.OutcomeSuccess, "")
+		res := Result{OK: true, DryRunPreview: preview, GitResult: gr, Audit: meta}
+		if aerr != nil {
+			return res, fmt.Errorf("audit: %w", aerr)
+		}
+		return res, nil
 	}
 
-	rec.Mode = audit.ModeExecute
 	gr, err := p.Git.RunApproved(ctx, req.WorkDir, req.GitArgs, false)
 	if err != nil {
-		rec.Outcome = audit.OutcomeFailure
-		rec.Detail = err.Error()
-		p.emit(ctx, rec)
-		return Result{GitResult: gr}, err
+		meta, aerr := p.appendAudit(ctx, req, ts, audit.ModeExecute, audit.OutcomeFailure, err.Error())
+		res := Result{GitResult: gr, Audit: meta}
+		if aerr != nil {
+			return res, fmt.Errorf("audit: %w", aerr)
+		}
+		return res, err
 	}
-	rec.Outcome = audit.OutcomeSuccess
-	p.emit(ctx, rec)
-	return Result{OK: true, GitResult: gr}, nil
+	meta, aerr := p.appendAudit(ctx, req, ts, audit.ModeExecute, audit.OutcomeSuccess, "")
+	res := Result{OK: true, GitResult: gr, Audit: meta}
+	if aerr != nil {
+		return res, fmt.Errorf("audit: %w", aerr)
+	}
+	return res, nil
 }
 
-func (p *Pipeline) emit(ctx context.Context, rec audit.Record) {
-	if p == nil || p.Audit == nil {
-		return
-	}
-	_ = p.Audit.Emit(ctx, rec)
+func (p *Pipeline) appendAudit(ctx context.Context, req *MutationRequest, ts time.Time, mode, outcome, detail string) (audit.AppendMetadata, error) {
+	return audit.Append(ctx, p.Audit, audit.AppendInput{
+		Timestamp:     ts,
+		Actor:         req.Actor,
+		Action:        req.Action,
+		Target:        req.Target,
+		Mode:          mode,
+		Outcome:       outcome,
+		Detail:        detail,
+		CorrelationID: req.CorrelationID,
+	})
 }
