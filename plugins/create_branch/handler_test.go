@@ -83,8 +83,7 @@ func TestExecute_InvalidBranchName(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	var ve *policy.ValidationError
-	if !errors.As(err, &ve) && !strings.Contains(err.Error(), "branch") {
+	if !strings.Contains(err.Error(), "branch") && !strings.Contains(err.Error(), "policy") {
 		t.Fatalf("got %v", err)
 	}
 }
@@ -178,7 +177,7 @@ func TestExecute_DryRunSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !res.OK || !res.DryRun {
+	if !res.OK || res.Mode != "dry-run" {
 		t.Fatalf("unexpected: %+v", res)
 	}
 	out, err := exec.Command("git", "-C", root, "rev-parse", "--verify", "refs/heads/feature/dry").CombinedOutput()
@@ -237,7 +236,7 @@ func initGitRepoWithCommit(t *testing.T) string {
 			t.Fatal(err)
 		}
 	}
-	if out, err := exec.Command("git", "-C", dir, "commit", "--allow-empty", "-m", "init").CombinedOutput(); err != nil {
+	if out, err := exec.Command("git", "-C", dir, "commit", "--allow-empty", "-m", "Add repository baseline").CombinedOutput(); err != nil {
 		t.Fatalf("git commit: %v\n%s", err, out)
 	}
 	abs, err := filepath.Abs(dir)

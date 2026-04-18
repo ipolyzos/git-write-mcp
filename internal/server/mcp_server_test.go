@@ -20,7 +20,7 @@ func TestNewMCPServerExposesExpectedTools(t *testing.T) {
 	t.Helper()
 	ctx := context.Background()
 
-	srv := server.NewMCPServer("0.0.0-test", plugin.Default)
+	srv := server.NewMCPServer("0.0.0-test", plugin.Default, server.ServeConfig{})
 
 	ct, st := mcp.NewInMemoryTransports()
 	if _, err := srv.Connect(ctx, st, nil); err != nil {

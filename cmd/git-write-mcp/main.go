@@ -24,8 +24,19 @@ func main() {
 		return
 	}
 
+	repoRoot := os.Getenv("GIT_WRITE_MCP_REPO_ROOT")
+	if repoRoot == "" {
+		fmt.Fprintln(os.Stderr, "git-write-mcp: GIT_WRITE_MCP_REPO_ROOT is required")
+		os.Exit(1)
+	}
+	cfg, err := server.BuildServeConfig(repoRoot)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "git-write-mcp: %v\n", err)
+		os.Exit(1)
+	}
+
 	ctx := context.Background()
-	if err := server.RunStdio(ctx, version.Version, plugin.Default); err != nil {
+	if err := server.RunStdio(ctx, version.Version, plugin.Default, cfg); err != nil {
 		fmt.Fprintf(os.Stderr, "git-write-mcp: %v\n", err)
 		os.Exit(1)
 	}

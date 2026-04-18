@@ -29,3 +29,19 @@ type Decision struct {
 type Approver interface {
 	Approve(ctx context.Context, req InvocationRequest) (Decision, error)
 }
+
+// AlwaysApprove grants every invocation (use only in controlled environments).
+type AlwaysApprove struct{}
+
+// Approve implements [Approver].
+func (AlwaysApprove) Approve(context.Context, InvocationRequest) (Decision, error) {
+	return Decision{Approved: true, DryRun: false}, nil
+}
+
+// DenyAll rejects every invocation until a real approver is wired.
+type DenyAll struct{}
+
+// Approve implements [Approver].
+func (DenyAll) Approve(context.Context, InvocationRequest) (Decision, error) {
+	return Decision{Approved: false}, nil
+}
