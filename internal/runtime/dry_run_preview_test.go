@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/ipolyzos/git-write-mcp/internal/runtime"
@@ -178,6 +179,35 @@ func TestBuildDryRunPreview_TagRevision_TargetRef(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got.SecondaryRefs, []string{"main"}) {
 		t.Fatalf("secondary_refs = %#v", got.SecondaryRefs)
+	}
+}
+
+func TestBuildDryRunPreview_CreatePullRequest(t *testing.T) {
+	t.Helper()
+	root := filepath.Join(t.TempDir(), "repo")
+	req := &runtime.MutationRequest{
+		Action:         "create_pull_request",
+		WorkDir:        root,
+		GitArgs:        []string{"create_pull_request", "feature/pr", "develop"},
+		PRTitle:        "My PR",
+		PRSourceBranch: "feature/pr",
+		PRTargetBranch: "develop",
+		PRDraft:        true,
+		GitHubOwner:    "o",
+		GitHubRepo:     "r",
+	}
+	got := runtime.BuildDryRunPreview(req)
+	if got.Action != "create_pull_request" {
+		t.Fatalf("action = %q", got.Action)
+	}
+	if len(got.GitCommands) != 1 || !strings.Contains(got.GitCommands[0], "GitHub API POST /repos/o/r/pulls") {
+		t.Fatalf("GitCommands = %#v", got.GitCommands)
+	}
+	if !reflect.DeepEqual(got.Targets, []string{"feature/pr"}) {
+		t.Fatalf("targets = %#v", got.Targets)
+	}
+	if !reflect.DeepEqual(got.SecondaryRefs, []string{"develop"}) {
+		t.Fatalf("secondary = %#v", got.SecondaryRefs)
 	}
 }
 

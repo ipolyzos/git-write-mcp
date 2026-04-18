@@ -50,12 +50,13 @@ type ApprovalDecision struct {
 
 // Known mutation actions accepted by this server build (extend deliberately).
 var supportedMutationActions = map[string]struct{}{
-	"create_branch":  {},
-	"push_branch":    {},
-	"stage_files":    {},
-	"unstage_files":  {},
-	"commit_changes": {},
-	"tag_revision":   {},
+	"create_branch":       {},
+	"create_pull_request": {},
+	"push_branch":         {},
+	"stage_files":         {},
+	"unstage_files":       {},
+	"commit_changes":      {},
+	"tag_revision":        {},
 }
 
 // EvaluateApproval runs the shared approval path: input validation, known-action
