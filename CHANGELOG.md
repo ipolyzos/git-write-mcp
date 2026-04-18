@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-04-18
+
+First release of the git-write-mcp stdio MCP server with four mutation tools,
+policy-backed validation, approvals, dry-run, and structured auditing.
+
 ### Added
 
 - Integration tests in `internal/server` (`mutation_tools_integration_test.go`): all four mutation tools run against a shared pipeline with audit capture; dry-run and approval-denied audit modes; repo-boundary rejection for `stage_files`.
@@ -33,3 +38,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - `stage_files`: path validation runs inside the mutation pipeline so invalid or out-of-repo paths emit a blocked audit record (previously returned before `Pipeline.Execute`).
+
+[Unreleased]: https://github.com/ipolyzos/git-write-mcp/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/ipolyzos/git-write-mcp/releases/tag/v0.1.0
