@@ -19,7 +19,7 @@ Provide MCP tools that can **mutate** a Git repository (branch, index, commits, 
 
 | In scope (this MCP) | Out of scope (use a read Git MCP or the host) |
 |---------------------|-----------------------------------------------|
-| `create_branch`, `stage_files`, `commit_changes`, `tag_revision` (when implemented) | `git_status`, `git_diff`, `git_log`, `git_show`, `git_blame`, `git_branch_list` |
+| `create_branch`, `stage_files`, `commit_changes`, `tag_revision` (`tag_revision` not implemented) | `git_status`, `git_diff`, `git_log`, `git_show`, `git_blame`, `git_branch_list` |
 | Allowlisted `git` invocations; no freestyle shell | Ad-hoc shell, pipe chains, or user-defined commands |
 | Policy + audit around each mutation | History rewriting / destructive defaults (must stay off by default) |
 
@@ -89,9 +89,9 @@ For code changes:
 | `internal/runtime` | Shared mutation `Pipeline`, `MutationRequest` / `Result`, dry-run previews |
 | `internal/plugin` | Plugin registry and interface |
 | `internal/git` | Allowlisted `Executor` (direct `exec`, no shell) |
-| `internal/policy` | Ref/branch/tag validation, repo path containment, Approver extension |
+| `internal/policy` | Ref/branch/tag/commit-message validation, repo path containment, Approver extension |
 | `internal/audit` | Structured audit `Record`, `Sink`, `Logger` |
-| `plugins/*` | Tool plugins (`create_branch`, `stage_files` implemented; others stub) |
+| `plugins/*` | Tool plugins (`create_branch`, `stage_files`, `commit_changes`; `tag_revision` stub) |
 
 ---
 
@@ -176,6 +176,34 @@ Example success (execute):
 {
   "ok": true,
   "paths": ["src/file.go"],
+  "dry_run_requested": false,
+  "mode": "execute",
+  "git_stdout": "",
+  "git_stderr": ""
+}
+```
+
+---
+
+## Tool: `commit_changes`
+
+Creates a commit from **currently staged** changes only with `git commit -m <message>`. There is **no** `--amend` or other history-rewrite argv (also blocked by `internal/git` destructive checks). Message validation uses `policy.ValidateCommitMessage`. Execution goes through `runtime.Pipeline`.
+
+**Inputs (JSON):**
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `message` | yes | Commit message (subject may span lines; validated for length and control characters). |
+| `dry_run` | no | If `true`, validation + preview only (no commit created). |
+
+**Structured output (`ToolResult`):** `ok`, `mode` (`execute` \| `dry-run` \| `blocked`), `message`, `dry_run_requested`, `dry_run`, `git_stdout`, `git_stderr`, `error`.
+
+Example success (execute):
+
+```json
+{
+  "ok": true,
+  "message": "Add export helper",
   "dry_run_requested": false,
   "mode": "execute",
   "git_stdout": "",
