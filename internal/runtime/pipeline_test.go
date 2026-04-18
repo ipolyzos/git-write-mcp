@@ -53,6 +53,10 @@ func TestPipeline_DryRunDoesNotInvokeGitBinary(t *testing.T) {
 	if res.DryRunPreview == nil {
 		t.Fatal("expected dry-run preview")
 	}
+	if res.DryRunPreview.Action != "create_branch" || len(res.DryRunPreview.GitCommands) != 1 ||
+		res.DryRunPreview.EffectSummary == "" {
+		t.Fatalf("preview: %+v", res.DryRunPreview)
+	}
 	if gitCalls != 1 {
 		t.Fatalf("git runner calls = %d, want 1 (gated skip)", gitCalls)
 	}

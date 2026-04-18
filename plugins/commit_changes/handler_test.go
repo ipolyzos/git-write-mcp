@@ -221,6 +221,11 @@ func TestExecute_DryRunSuccess(t *testing.T) {
 	if !res.OK || res.Mode != "dry-run" {
 		t.Fatalf("unexpected: %+v", res)
 	}
+	if res.DryRunPreview == nil || res.DryRunPreview.Action != "commit_changes" ||
+		len(res.DryRunPreview.GitArgv) == 0 || res.DryRunPreview.EffectSummary == "" ||
+		len(res.DryRunPreview.GitCommands) != 1 {
+		t.Fatalf("dry_run_preview: %+v", res.DryRunPreview)
+	}
 	headAfter, err := exec.Command("git", "-C", root, "rev-parse", "HEAD").Output()
 	if err != nil {
 		t.Fatal(err)
