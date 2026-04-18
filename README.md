@@ -93,6 +93,7 @@ CI and **`make test`** / **`make ci`** run **`go test -race ./...`** (data race 
 | `internal/git` | Allowlisted `Executor` (direct `exec`, no shell) |
 | `internal/policy` | Ref/branch/tag/commit-message validation, repo path containment, Approver extension |
 | `internal/audit` | Structured audit `Record`, `Sink`, `Logger` |
+| `internal/integration/github` | GitHub REST foundation (`Config`, `Client`, `Integration`); see `docs/github-integration.md` |
 | `plugins/*` | Tool plugins (`create_branch`, `stage_files`, `unstage_files`, `commit_changes`, `tag_revision`) |
 
 ---

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`internal/integration/github`**: typed GitHub REST foundation (`Config`, `Repository`, `HTTPDoer`, `Client`, `Integration` stubs, `DecodePullRequestResponse`, `LoadConfigFromEnv`); injectable HTTP for tests; **`docs/github-integration.md`** documents env vars, Actions permissions, and secret handling.
 - MCP tool **`unstage_files`**: validated paths removed from the index via allowlisted `git reset HEAD --` only; approval, dry-run, audit via **`plugins/unstage_files`** and **`runtime.Pipeline`** (companion to **`stage_files`**).
 - MCP tool **`get_capabilities`**: deterministic JSON (`[plugin.Capabilities]` / **`plugin.CapabilitiesJSON`**) listing write tools (`commit_changes`, `create_branch`, `stage_files`, `tag_revision`, `unstage_files`), safety **`behaviors`** (`approval_required`, `audit_trail_enabled`, `dry_run_supported`), and **`excluded_read_tools`** delegated elsewhere (`git_status`, `git_diff`, `git_log`, `git_show`, `git_blame`, `git_branch_list`).
 - **`audit.Append`** / **`AppendInput`** / **`AppendMetadata`**: standard append path for mutation audit lines; **`Record`** gains **`audit_id`** (generated when unset) and optional **`correlation_id`**. **`runtime.Result.Audit`** echoes ids for callers; **`MutationRequest.CorrelationID`** passes through for tracing.
