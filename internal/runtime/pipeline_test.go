@@ -37,7 +37,7 @@ func TestPipeline_DryRunDoesNotInvokeGitBinary(t *testing.T) {
 		Audit: audit.NewLogger(audit.SinkFunc(func(context.Context, audit.Record) error { return nil })),
 	}
 	ctx := context.Background()
-	req := runtime.MutationRequest{
+	req := &runtime.MutationRequest{
 		Actor:           "test",
 		Action:          "noop",
 		Target:          "refs/heads/x",
@@ -76,7 +76,7 @@ func TestPipeline_EmitAuditContainsRequiredFields(t *testing.T) {
 		})),
 	}
 	ctx := context.Background()
-	req := runtime.MutationRequest{
+	req := &runtime.MutationRequest{
 		Actor:   "actor1",
 		Action:  "commit_changes",
 		Target:  "index",
@@ -122,7 +122,7 @@ func TestPipeline_ApproverNilRejected(t *testing.T) {
 		Audit:    audit.NewLogger(audit.SinkFunc(func(context.Context, audit.Record) error { return nil })),
 	}
 	ctx := context.Background()
-	req := runtime.MutationRequest{
+	req := &runtime.MutationRequest{
 		Actor:   "a",
 		Action:  "add",
 		Target:  "f",
@@ -131,6 +131,26 @@ func TestPipeline_ApproverNilRejected(t *testing.T) {
 	}
 	_, err = p.Execute(ctx, req)
 	if !errors.Is(err, policy.ErrApprovalRequired) {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestPipeline_NilMutationRequestRejected(t *testing.T) {
+	t.Helper()
+	root := initGitRepo(t)
+	p := &runtime.Pipeline{
+		RepoRoot: root,
+		Policy:   mustEngine(t, root),
+		Approver: alwaysApproveExec{},
+		Git: runnerFunc(func(context.Context, string, []string, bool) (git.RunResult, error) {
+			t.Fatal("git should not run")
+			return git.RunResult{}, nil
+		}),
+		Audit: audit.NewLogger(audit.SinkFunc(func(context.Context, audit.Record) error { return nil })),
+	}
+	ctx := context.Background()
+	_, err := p.Execute(ctx, nil)
+	if err == nil || !strings.Contains(err.Error(), "nil mutation") {
 		t.Fatalf("got %v", err)
 	}
 }
@@ -150,7 +170,7 @@ func TestPipeline_RequestValidateFailsBeforeGit(t *testing.T) {
 		Audit: audit.NewLogger(audit.SinkFunc(func(context.Context, audit.Record) error { return nil })),
 	}
 	ctx := context.Background()
-	req := runtime.MutationRequest{
+	req := &runtime.MutationRequest{
 		Actor:   "a",
 		Action:  "x",
 		Target:  "y",

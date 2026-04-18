@@ -7,6 +7,8 @@ package runtime
 import "github.com/ipolyzos/git-write-mcp/internal/git"
 
 // MutationRequest is input to [Pipeline.Execute] for one mutating tool operation.
+// Execute receives a pointer so [MutationRequest.Validate] may set GitArgs and Target
+// after validating inputs (see plugins/stage_files).
 type MutationRequest struct {
 	Actor   string
 	Action  string

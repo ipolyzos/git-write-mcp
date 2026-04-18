@@ -54,7 +54,7 @@ func (h *Handler) Execute(ctx context.Context, repoRoot string, p Params) (ToolR
 		actor = "mcp"
 	}
 
-	mr := runtime.MutationRequest{
+	mr := &runtime.MutationRequest{
 		Actor:           actor,
 		Action:          "create_branch",
 		Target:          p.BranchName,
