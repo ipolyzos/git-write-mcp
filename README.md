@@ -65,6 +65,8 @@ For code changes:
 4. Run **`make ci`** or the same steps as CI (`check-fmt`, `vet`, `test`, `lint`, `build`).
 5. Update docs when behavior or contracts change.
 
+CI and **`make test`** / **`make ci`** run **`go test -race ./...`** (data race detector).
+
 ---
 
 ## Security principles

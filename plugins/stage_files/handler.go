@@ -58,24 +58,27 @@ func (h *Handler) Execute(ctx context.Context, repoRoot string, p Params) (ToolR
 		actor = "mcp"
 	}
 
-	rels, err := normalizeStagePaths(h.Pipeline.Policy, absRoot, p.Paths)
-	if err != nil {
-		return ToolResult{DryRunRequested: p.DryRun}, err
-	}
-
-	argv := append([]string{"add", "--"}, rels...)
-	mr := runtime.MutationRequest{
+	var resolved []string
+	mr := &runtime.MutationRequest{
 		Actor:           actor,
 		Action:          "stage_files",
-		Target:          strings.Join(rels, ","),
+		Target:          strings.Join(p.Paths, ","),
 		WorkDir:         absRoot,
-		GitArgs:         argv,
 		DryRunRequested: p.DryRun,
-		Validate:        func() error { return nil },
+	}
+	mr.Validate = func() error {
+		rels, err := normalizeStagePaths(h.Pipeline.Policy, absRoot, p.Paths)
+		if err != nil {
+			return err
+		}
+		resolved = rels
+		mr.GitArgs = append([]string{"add", "--"}, rels...)
+		mr.Target = strings.Join(rels, ",")
+		return nil
 	}
 
 	res, err := h.Pipeline.Execute(ctx, mr)
-	out := toolResultFromRuntime(res, rels, p.DryRun, err)
+	out := toolResultFromRuntime(res, resolved, p.DryRun, err)
 	return out, err
 }
 

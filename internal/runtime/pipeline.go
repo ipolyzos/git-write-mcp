@@ -36,9 +36,12 @@ type Pipeline struct {
 // 5. git execution
 // 6. audit record
 // 7. structured result
-func (p *Pipeline) Execute(ctx context.Context, req MutationRequest) (Result, error) {
+func (p *Pipeline) Execute(ctx context.Context, req *MutationRequest) (Result, error) {
 	if p == nil {
 		return Result{}, errors.New("runtime: nil pipeline")
+	}
+	if req == nil {
+		return Result{}, errors.New("runtime: nil mutation request")
 	}
 
 	ts := time.Now().UTC()
