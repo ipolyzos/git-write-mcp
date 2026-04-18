@@ -23,8 +23,8 @@ type ServeConfig struct {
 	RepoRoot string
 	Pipeline *runtime.Pipeline
 	Actor    string
-	// GitHub creates pull requests via REST when configured (GITHUB_TOKEN + repo env).
-	GitHub      github.PRWriter
+	// GitHub creates pull requests and reads PR status when configured (GITHUB_TOKEN + repo env).
+	GitHub      github.MCPGitHub
 	GitHubOwner string
 	GitHubRepo  string
 }

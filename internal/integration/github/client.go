@@ -12,6 +12,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 )
 
@@ -130,13 +131,92 @@ func (c *Client) CreatePullRequest(ctx context.Context, in CreatePullRequestInpu
 	return &pr, nil
 }
 
-// GetPullRequestStatus implements [Integration] (placeholder).
+// GetPullRequestStatus loads PR metadata, combined commit status for the head SHA,
+// and review counts via the GitHub REST API (read-only).
 func (c *Client) GetPullRequestStatus(ctx context.Context, owner, repo string, number int) (*PullRequestStatus, error) {
-	_ = ctx
-	_ = owner
-	_ = repo
-	_ = number
-	return nil, ErrNotImplemented
+	if c == nil {
+		return nil, fmt.Errorf("github: nil client")
+	}
+	if err := c.assertRepo(owner, repo); err != nil {
+		return nil, err
+	}
+	if number < 1 {
+		return nil, fmt.Errorf("github: invalid pull request number")
+	}
+	o := strings.TrimSpace(c.cfg.Repository.Owner)
+	n := strings.TrimSpace(c.cfg.Repository.Name)
+	prPath := "/repos/" + url.PathEscape(o) + "/" + url.PathEscape(n) + "/pulls/" + strconv.Itoa(number)
+	res, err := c.DoAuthorizedGET(ctx, prPath)
+	if err != nil {
+		return nil, err
+	}
+	prBody, err := readHTTPBody(res)
+	if err != nil {
+		return nil, err
+	}
+	if res.StatusCode == http.StatusNotFound {
+		return nil, ErrPullRequestNotFound
+	}
+	if res.StatusCode < 200 || res.StatusCode >= 300 {
+		return nil, fmt.Errorf("github: get PR: HTTP %d: %s", res.StatusCode, strings.TrimSpace(string(prBody)))
+	}
+	st, err := DecodePullRequestForStatus(prBody)
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(st.HeadSHA) != "" {
+		statPath := "/repos/" + url.PathEscape(o) + "/" + url.PathEscape(n) + "/commits/" + url.PathEscape(st.HeadSHA) + "/status"
+		sres, err := c.DoAuthorizedGET(ctx, statPath)
+		if err != nil {
+			return nil, err
+		}
+		sb, err := readHTTPBody(sres)
+		if err != nil {
+			return nil, err
+		}
+		if sres.StatusCode < 200 || sres.StatusCode >= 300 {
+			return nil, fmt.Errorf("github: get combined status: HTTP %d: %s", sres.StatusCode, strings.TrimSpace(string(sb)))
+		}
+		ch, err := DecodeCombinedStatus(sb)
+		if err != nil {
+			return nil, err
+		}
+		st.ChecksSummary = ch
+	}
+	revPath := "/repos/" + url.PathEscape(o) + "/" + url.PathEscape(n) + "/pulls/" + strconv.Itoa(number) + "/reviews"
+	rres, err := c.DoAuthorizedGET(ctx, revPath)
+	if err != nil {
+		return nil, err
+	}
+	rb, err := readHTTPBody(rres)
+	if err != nil {
+		return nil, err
+	}
+	if rres.StatusCode < 200 || rres.StatusCode >= 300 {
+		return nil, fmt.Errorf("github: list reviews: HTTP %d: %s", rres.StatusCode, strings.TrimSpace(string(rb)))
+	}
+	rs, err := DecodeReviewsSummary(rb)
+	if err != nil {
+		return nil, err
+	}
+	st.ReviewsSummary = rs
+	return &st, nil
+}
+
+func (c *Client) assertRepo(owner, repo string) error {
+	wantO := strings.TrimSpace(c.cfg.Repository.Owner)
+	wantN := strings.TrimSpace(c.cfg.Repository.Name)
+	gotO := strings.TrimSpace(owner)
+	gotN := strings.TrimSpace(repo)
+	if !strings.EqualFold(wantO, gotO) || !strings.EqualFold(wantN, gotN) {
+		return fmt.Errorf("github: repository identity mismatch")
+	}
+	return nil
+}
+
+func readHTTPBody(res *http.Response) ([]byte, error) {
+	defer func() { _ = res.Body.Close() }()
+	return io.ReadAll(io.LimitReader(res.Body, 8<<20))
 }
 
 // MergePullRequest implements [Integration] (placeholder).

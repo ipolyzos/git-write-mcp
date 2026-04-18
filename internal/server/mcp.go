@@ -14,6 +14,7 @@ import (
 	"github.com/ipolyzos/git-write-mcp/plugins/commit_changes"
 	"github.com/ipolyzos/git-write-mcp/plugins/create_branch"
 	"github.com/ipolyzos/git-write-mcp/plugins/create_pull_request"
+	"github.com/ipolyzos/git-write-mcp/plugins/get_pull_request_status"
 	"github.com/ipolyzos/git-write-mcp/plugins/push_branch"
 	"github.com/ipolyzos/git-write-mcp/plugins/stage_files"
 	"github.com/ipolyzos/git-write-mcp/plugins/tag_revision"
@@ -52,6 +53,10 @@ func NewMCPServer(version string, reg *plugin.Registry, cfg ServeConfig) *mcp.Se
 		stage_files.RegisterMCPTool(s, cfg.Pipeline, cfg.RepoRoot, cfg.Actor)
 		tag_revision.RegisterMCPTool(s, cfg.Pipeline, cfg.RepoRoot, cfg.Actor)
 		unstage_files.RegisterMCPTool(s, cfg.Pipeline, cfg.RepoRoot, cfg.Actor)
+		if cfg.GitHub != nil {
+			implemented["get_pull_request_status"] = struct{}{}
+			get_pull_request_status.RegisterMCPTool(s, cfg.GitHub, cfg.GitHubOwner, cfg.GitHubRepo)
+		}
 	}
 
 	for _, name := range reg.Names() {

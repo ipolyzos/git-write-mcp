@@ -11,7 +11,7 @@ This software is licensed under **Apache-2.0**. Copyright **2026** **Ioannis Pol
 
 ## Purpose
 
-Provide MCP tools that can **mutate** a Git repository (branch, index, commits, tags) with **explicit approvals**, **dry-run** support, **structured auditing**, **repository boundary enforcement**, and **strict validation** of branches, refs, tags, paths, and commit messages. Deterministic structured responses are required for all operations.
+Provide MCP tools that can **mutate** a Git repository (branch, index, commits, tags) with **explicit approvals**, **dry-run** support, **structured auditing**, **repository boundary enforcement**, and **strict validation** of branches, refs, tags, paths, and commit messages. Optional **read-only GitHub integration** exposes pull request readiness (`get_pull_request_status`) for babysitting merges. Deterministic structured responses are required for all operations.
 
 ---
 
@@ -19,11 +19,11 @@ Provide MCP tools that can **mutate** a Git repository (branch, index, commits, 
 
 | In scope (this MCP) | Out of scope (use a read Git MCP or the host) |
 |---------------------|-----------------------------------------------|
-| `create_branch`, `create_pull_request`, `push_branch`, `stage_files`, `unstage_files`, `commit_changes`, `tag_revision` | `git_status`, `git_diff`, `git_log`, `git_show`, `git_blame`, `git_branch_list` |
+| `create_branch`, `create_pull_request`, `push_branch`, `stage_files`, `unstage_files`, `commit_changes`, `tag_revision`; read-only **`get_pull_request_status`** (GitHub REST, requires token + repo env) | `git_status`, `git_diff`, `git_log`, `git_show`, `git_blame`, `git_branch_list` |
 | Allowlisted `git` invocations; no freestyle shell | Ad-hoc shell, pipe chains, or user-defined commands |
 | Policy + audit around each mutation | History rewriting / destructive defaults (must stay off by default) |
 
-Read-oriented queries stay in a dedicated read MCP so this server can focus on **writes** and **policy**.
+Repository file history and blame stay in a dedicated read Git MCP; **`get_pull_request_status`** only queries GitHub’s PR/check/review APIs for the configured repository.
 
 ---
 
@@ -94,7 +94,7 @@ CI and **`make test`** / **`make ci`** run **`go test -race ./...`** (data race 
 | `internal/policy` | Ref/branch/tag/commit-message validation, repo path containment, Approver extension |
 | `internal/audit` | Structured audit `Record`, `Sink`, `Logger` |
 | `internal/integration/github` | GitHub REST foundation (`Config`, `Client`, `Integration`); see `docs/github-integration.md` |
-| `plugins/*` | Tool plugins (`create_branch`, `create_pull_request`, `push_branch`, `stage_files`, `unstage_files`, `commit_changes`, `tag_revision`) |
+| `plugins/*` | Tool plugins (`create_branch`, `create_pull_request`, `get_pull_request_status`, `push_branch`, `stage_files`, `unstage_files`, `commit_changes`, `tag_revision`) |
 
 ---
 
@@ -109,7 +109,7 @@ The process must know which repository to operate on and how approvals are decid
 | `GIT_WRITE_MCP_ACTOR` | Optional label stored on audit records (default: `mcp`). |
 | `GIT_WRITE_MCP_ALLOWED_PUSH_REMOTES` | Comma-separated remote names allowed for **`push_branch`** (default: `origin`). Example: `origin,upstream`. |
 | `GIT_WRITE_MCP_ALLOWED_PR_TARGET_BRANCHES` | Comma-separated base branch names allowed for **`create_pull_request`** (default: **`develop`**). |
-| `GITHUB_TOKEN` | Bearer token for GitHub REST (required for **`create_pull_request`** when the GitHub client is initialized at server start). |
+| `GITHUB_TOKEN` | Bearer token for GitHub REST (required for **`create_pull_request`** and **`get_pull_request_status`** when the GitHub client initializes at server start). |
 | `GITHUB_REPOSITORY` | Repository as **`owner/name`** (e.g. **`octocat/Hello-World`**). Alternative: set **`GITHUB_REPOSITORY_OWNER`** and **`GITHUB_REPOSITORY_NAME`**. |
 
 Example:
@@ -193,6 +193,50 @@ Example success (execute):
   "html_url": "https://github.com/org/repo/pull/42",
   "dry_run_requested": false,
   "mode": "execute"
+}
+```
+
+---
+
+## Tool: `get_pull_request_status`
+
+Read-only inspection of an existing pull request in the configured GitHub repository. Calls **`GET /repos/{owner}/{repo}/pulls/{number}`**, **`GET .../commits/{head_sha}/status`**, and **`GET .../pulls/{number}/reviews`**. Does **not** use `runtime.Pipeline`, approvals, or git mutation. Registered only when **`GIT_WRITE_MCP_REPO_ROOT`** is set **and** the GitHub client loads (**`GITHUB_TOKEN`** + repository env).
+
+**Inputs (JSON):**
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `pull_request_number` | yes | Numeric PR number in the configured repo. |
+
+**Structured output (`ToolResult`):** `ok`, `error`, `pull_request` (object with `state`, `merged`, `draft`, `mergeable`, `mergeable_state`, `title`, `html_url`, `head_ref`, `base_ref`, `head_sha`, `checks_summary`, `reviews_summary`).
+
+Example success:
+
+```json
+{
+  "ok": true,
+  "pull_request": {
+    "number": 24,
+    "title": "Feature",
+    "state": "open",
+    "merged": false,
+    "mergeable_state": "clean",
+    "head_ref": "feature/x",
+    "base_ref": "develop",
+    "head_sha": "abc123",
+    "checks_summary": {
+      "state": "success",
+      "total_count": 2,
+      "contexts": [{"context": "ci", "state": "success"}]
+    },
+    "reviews_summary": {
+      "approved": 1,
+      "changes_requested": 0,
+      "commented": 0,
+      "pending": 0,
+      "dismissed": 0
+    }
+  }
 }
 ```
 

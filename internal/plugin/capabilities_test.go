@@ -22,6 +22,15 @@ func TestCapabilitiesDocument_WriteTools(t *testing.T) {
 	}
 }
 
+func TestCapabilitiesDocument_ReadTools(t *testing.T) {
+	t.Helper()
+	got := plugin.DocumentCapabilities()
+	want := []string{"get_pull_request_status"}
+	if !slices.Equal(got.ReadTools, want) {
+		t.Fatalf("ReadTools = %v, want %v", got.ReadTools, want)
+	}
+}
+
 func TestCapabilitiesDocument_ExcludedReadTools(t *testing.T) {
 	t.Helper()
 	got := plugin.DocumentCapabilities()

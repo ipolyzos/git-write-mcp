@@ -4,17 +4,7 @@
 
 package github
 
-import "fmt"
+import "errors"
 
-// ValidationError describes invalid configuration or inputs for the GitHub layer.
-type ValidationError struct {
-	Field string
-	Msg   string
-}
-
-func (e *ValidationError) Error() string {
-	if e == nil {
-		return ""
-	}
-	return fmt.Sprintf("github: invalid %s: %s", e.Field, e.Msg)
-}
+// ErrPullRequestNotFound means the pulls API returned 404 for that number.
+var ErrPullRequestNotFound = errors.New("github: pull request not found")
