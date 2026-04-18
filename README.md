@@ -19,7 +19,7 @@ Provide MCP tools that can **mutate** a Git repository (branch, index, commits, 
 
 | In scope (this MCP) | Out of scope (use a read Git MCP or the host) |
 |---------------------|-----------------------------------------------|
-| `create_branch`, `push_branch`, `stage_files`, `unstage_files`, `commit_changes`, `tag_revision` | `git_status`, `git_diff`, `git_log`, `git_show`, `git_blame`, `git_branch_list` |
+| `create_branch`, `create_pull_request`, `push_branch`, `stage_files`, `unstage_files`, `commit_changes`, `tag_revision` | `git_status`, `git_diff`, `git_log`, `git_show`, `git_blame`, `git_branch_list` |
 | Allowlisted `git` invocations; no freestyle shell | Ad-hoc shell, pipe chains, or user-defined commands |
 | Policy + audit around each mutation | History rewriting / destructive defaults (must stay off by default) |
 
@@ -94,7 +94,7 @@ CI and **`make test`** / **`make ci`** run **`go test -race ./...`** (data race 
 | `internal/policy` | Ref/branch/tag/commit-message validation, repo path containment, Approver extension |
 | `internal/audit` | Structured audit `Record`, `Sink`, `Logger` |
 | `internal/integration/github` | GitHub REST foundation (`Config`, `Client`, `Integration`); see `docs/github-integration.md` |
-| `plugins/*` | Tool plugins (`create_branch`, `push_branch`, `stage_files`, `unstage_files`, `commit_changes`, `tag_revision`) |
+| `plugins/*` | Tool plugins (`create_branch`, `create_pull_request`, `push_branch`, `stage_files`, `unstage_files`, `commit_changes`, `tag_revision`) |
 
 ---
 
@@ -108,6 +108,9 @@ The process must know which repository to operate on and how approvals are decid
 | `GIT_WRITE_MCP_AUTO_APPROVE` | If `1`, `true`, `yes`, or `on`, mutations use `policy.AlwaysApprove`. Otherwise `policy.DenyAll` (default safe). |
 | `GIT_WRITE_MCP_ACTOR` | Optional label stored on audit records (default: `mcp`). |
 | `GIT_WRITE_MCP_ALLOWED_PUSH_REMOTES` | Comma-separated remote names allowed for **`push_branch`** (default: `origin`). Example: `origin,upstream`. |
+| `GIT_WRITE_MCP_ALLOWED_PR_TARGET_BRANCHES` | Comma-separated base branch names allowed for **`create_pull_request`** (default: **`develop`**). |
+| `GITHUB_TOKEN` | Bearer token for GitHub REST (required for **`create_pull_request`** when the GitHub client is initialized at server start). |
+| `GITHUB_REPOSITORY` | Repository as **`owner/name`** (e.g. **`octocat/Hello-World`**). Alternative: set **`GITHUB_REPOSITORY_OWNER`** and **`GITHUB_REPOSITORY_NAME`**. |
 
 Example:
 
@@ -156,6 +159,40 @@ Example dry-run:
   "dry_run_requested": true,
   "mode": "dry-run",
   "dry_run": true
+}
+```
+
+---
+
+## Tool: `create_pull_request`
+
+Opens a pull request on GitHub via the REST API (`POST /repos/{owner}/{repo}/pulls`). The server constructs a minimal GitHub client when **`GITHUB_TOKEN`** and repository env vars resolve at startup; otherwise the tool returns a clear configuration error on execute. Source and target branch names use the same conservative validation as other tools; **`target_branch`** defaults to **`develop`** and must appear in **`GIT_WRITE_MCP_ALLOWED_PR_TARGET_BRANCHES`** (see Configuration). Execution uses **`runtime.Pipeline`** (approval, dry-run preview describing the API call, audit).
+
+**Inputs (JSON):**
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `source_branch` | yes | Head branch name (must already exist on the remote for a successful PR). |
+| `target_branch` | no | Base branch (default **`develop`**). |
+| `title` | yes | PR title. |
+| `body` | no | PR body. |
+| `draft` | no | If `true`, create a draft PR. |
+| `dry_run` | no | If `true`, validation + preview only (no GitHub API call). |
+
+**Structured output (`ToolResult`):** `ok`, `mode` (`execute` \| `dry-run` \| `blocked`), `source_branch`, `target_branch`, `title`, `pull_request_number`, `html_url`, `draft`, `dry_run_requested`, `dry_run`, `dry_run_preview`, `error`.
+
+Example success (execute):
+
+```json
+{
+  "ok": true,
+  "source_branch": "feature/foo",
+  "target_branch": "develop",
+  "title": "Add feature",
+  "pull_request_number": 42,
+  "html_url": "https://github.com/org/repo/pull/42",
+  "dry_run_requested": false,
+  "mode": "execute"
 }
 ```
 

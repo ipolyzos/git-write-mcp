@@ -5,6 +5,8 @@
 package runtime
 
 import (
+	"context"
+
 	"github.com/ipolyzos/git-write-mcp/internal/audit"
 	"github.com/ipolyzos/git-write-mcp/internal/git"
 )
@@ -31,6 +33,18 @@ type MutationRequest struct {
 	RequireHEADBranch string
 	// PushRemote is the validated remote name for push_branch previews and argv.
 	PushRemote string
+
+	// APIExecute runs a non-git side effect after approval (e.g. GitHub REST).
+	// When non-nil, dry-run skips git; execute calls this instead of git.
+	APIExecute func(context.Context) error
+
+	// PRSourceBranch, PRTargetBranch, PRTitle, PRDraft support create_pull_request previews.
+	PRSourceBranch string
+	PRTargetBranch string
+	PRTitle        string
+	PRDraft        bool
+	GitHubOwner    string
+	GitHubRepo     string
 
 	// DryRunRequested asks for a preview only (no git mutation); combined with [policy.Decision.DryRun].
 	DryRunRequested bool

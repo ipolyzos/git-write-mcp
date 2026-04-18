@@ -269,20 +269,35 @@ func TestLoadConfigFromEnv_MissingToken(t *testing.T) {
 	}
 }
 
-func TestIntegrationStub_CreatePullRequest_NotImplemented(t *testing.T) {
+func TestClient_CreatePullRequest_Success(t *testing.T) {
 	t.Helper()
+	ctx := context.Background()
 	cfg := gh.Config{
 		Repository: gh.Repository{Owner: "o", Name: "r"},
 		Token:      "t",
 	}
-	cl, err := gh.NewClient(cfg, fakeHTTP(nil))
+	cl, err := gh.NewClient(cfg, fakeHTTP(func(req *http.Request) (*http.Response, error) {
+		if req.Method != http.MethodPost || req.URL.Path != "/repos/o/r/pulls" {
+			t.Fatalf("unexpected request %s %s", req.Method, req.URL.Path)
+		}
+		return &http.Response{
+			StatusCode: 201,
+			Body:       io.NopCloser(strings.NewReader(`{"number":5,"title":"Hi","state":"open","html_url":"https://example.com/5","head":{"sha":"sha1"}}`)),
+		}, nil
+	}))
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx := context.Background()
-	_, err = cl.CreatePullRequest(ctx, gh.CreatePullRequestInput{})
-	if !errors.Is(err, gh.ErrNotImplemented) {
-		t.Fatalf("got %v", err)
+	pr, err := cl.CreatePullRequest(ctx, gh.CreatePullRequestInput{
+		Title: "Hi",
+		Head:  "feature/a",
+		Base:  "develop",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pr.Number != 5 || pr.HTMLURL != "https://example.com/5" || pr.Title != "Hi" || pr.HeadSHA != "sha1" || pr.State != "open" {
+		t.Fatalf("%+v", pr)
 	}
 }
 

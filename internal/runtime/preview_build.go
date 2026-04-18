@@ -20,7 +20,7 @@ func BuildDryRunPreview(req *MutationRequest) DryRunPreview {
 	}
 	wd := filepath.Clean(req.WorkDir)
 	argv := append([]string(nil), req.GitArgs...)
-	cmdLine := plannedGitCommandLine(wd, argv)
+	cmdLine := plannedPreviewCommandLine(req, wd, argv)
 	return DryRunPreview{
 		Action:        req.Action,
 		Targets:       previewTargets(req),
@@ -73,6 +73,12 @@ func previewTargets(req *MutationRequest) []string {
 			return nil
 		}
 		return []string{s}
+	case "create_pull_request":
+		s := strings.TrimSpace(req.PRSourceBranch)
+		if s == "" {
+			return nil
+		}
+		return []string{s}
 	default:
 		s := strings.TrimSpace(req.Target)
 		if s == "" {
@@ -95,6 +101,10 @@ func previewSecondaryRefs(req *MutationRequest) []string {
 	case "push_branch":
 		if strings.TrimSpace(req.PushRemote) != "" {
 			return []string{req.PushRemote}
+		}
+	case "create_pull_request":
+		if t := strings.TrimSpace(req.PRTargetBranch); t != "" {
+			return []string{t}
 		}
 	}
 	return nil
@@ -145,9 +155,23 @@ func previewEffectSummary(req *MutationRequest) string {
 		b := strings.TrimSpace(req.Target)
 		r := strings.TrimSpace(req.PushRemote)
 		return fmt.Sprintf(`Would push branch %q to remote %q (no force, no refspec).`, b, r)
+	case "create_pull_request":
+		ti := strings.TrimSpace(req.PRTitle)
+		return fmt.Sprintf(`Would open pull request %q from %q into %q (draft=%v).`,
+			ti, strings.TrimSpace(req.PRSourceBranch), strings.TrimSpace(req.PRTargetBranch), req.PRDraft)
 	default:
 		return `Would run git with the planned arguments (dry-run; no repository changes).`
 	}
+}
+
+func plannedPreviewCommandLine(req *MutationRequest, wd string, argv []string) string {
+	if req != nil && req.Action == "create_pull_request" {
+		o := strings.TrimSpace(req.GitHubOwner)
+		r := strings.TrimSpace(req.GitHubRepo)
+		return fmt.Sprintf("GitHub API POST /repos/%s/%s/pulls head=%q base=%q draft=%v",
+			o, r, strings.TrimSpace(req.PRSourceBranch), strings.TrimSpace(req.PRTargetBranch), req.PRDraft)
+	}
+	return plannedGitCommandLine(wd, argv)
 }
 
 func plannedGitCommandLine(workDir string, argv []string) string {

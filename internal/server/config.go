@@ -6,12 +6,14 @@ package server
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/ipolyzos/git-write-mcp/internal/audit"
 	"github.com/ipolyzos/git-write-mcp/internal/git"
+	"github.com/ipolyzos/git-write-mcp/internal/integration/github"
 	"github.com/ipolyzos/git-write-mcp/internal/policy"
 	"github.com/ipolyzos/git-write-mcp/internal/runtime"
 )
@@ -21,6 +23,10 @@ type ServeConfig struct {
 	RepoRoot string
 	Pipeline *runtime.Pipeline
 	Actor    string
+	// GitHub creates pull requests via REST when configured (GITHUB_TOKEN + repo env).
+	GitHub      github.PRWriter
+	GitHubOwner string
+	GitHubRepo  string
 }
 
 // BuildServeConfig constructs [ServeConfig] from an absolute or relative repository root path.
@@ -53,5 +59,13 @@ func BuildServeConfig(repoRoot string) (ServeConfig, error) {
 	if actor == "" {
 		actor = "mcp"
 	}
-	return ServeConfig{RepoRoot: abs, Pipeline: pipe, Actor: actor}, nil
+	cfg := ServeConfig{RepoRoot: abs, Pipeline: pipe, Actor: actor}
+	if ghc, err := github.LoadConfigFromEnv(); err == nil {
+		if c, err := github.NewClient(ghc, http.DefaultClient); err == nil {
+			cfg.GitHub = c
+			cfg.GitHubOwner = strings.TrimSpace(ghc.Repository.Owner)
+			cfg.GitHubRepo = strings.TrimSpace(ghc.Repository.Name)
+		}
+	}
+	return cfg, nil
 }
