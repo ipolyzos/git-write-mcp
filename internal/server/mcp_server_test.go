@@ -32,7 +32,11 @@ func TestNewMCPServerExposesExpectedTools(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cs.Close()
+	t.Cleanup(func() {
+		if err := cs.Close(); err != nil {
+			t.Errorf("Close client session: %v", err)
+		}
+	})
 
 	res, err := cs.ListTools(ctx, nil)
 	if err != nil {

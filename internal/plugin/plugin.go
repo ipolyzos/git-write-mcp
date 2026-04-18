@@ -5,7 +5,9 @@
 // Package plugin defines the MCP tool plugin surface and registration.
 package plugin
 
-// Plugin is a thin tool binding (bootstrap: name only; logic comes later).
+// Plugin identifies a stable MCP tools/list and tools/call target (tool name).
+// Plugins register via [Registry.Register], typically from an init function in plugins/*.
+// Execution policy and Git invocation are layered above this contract later.
 type Plugin interface {
 	Name() string
 }

@@ -5,11 +5,13 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
 
-	_ "github.com/ipolyzos/git-write-mcp/internal/server"
+	"github.com/ipolyzos/git-write-mcp/internal/plugin"
+	"github.com/ipolyzos/git-write-mcp/internal/server"
 	"github.com/ipolyzos/git-write-mcp/internal/version"
 )
 
@@ -22,6 +24,9 @@ func main() {
 		return
 	}
 
-	fmt.Fprintln(os.Stderr, "git-write-mcp: MCP stdio server not yet initialized; use -version")
-	os.Exit(1)
+	ctx := context.Background()
+	if err := server.RunStdio(ctx, version.Version, plugin.Default); err != nil {
+		fmt.Fprintf(os.Stderr, "git-write-mcp: %v\n", err)
+		os.Exit(1)
+	}
 }

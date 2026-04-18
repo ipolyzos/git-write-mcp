@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-// Package server wires stdio MCP startup (bootstrap: plugin registration only).
+// Package server wires MCP startup over stdio and mirrors registered [plugin.Plugin] tools on the MCP server (stub handlers until tools are implemented).
 package server
 
 import (
