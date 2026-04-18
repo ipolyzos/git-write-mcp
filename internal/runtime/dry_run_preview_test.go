@@ -61,6 +61,25 @@ func TestBuildDryRunPreview_CreateBranch_FromRef(t *testing.T) {
 	}
 }
 
+func TestBuildDryRunPreview_UnstageFiles(t *testing.T) {
+	t.Helper()
+	root := filepath.Clean("/tmp/repo")
+	req := &runtime.MutationRequest{
+		Action:  "unstage_files",
+		Target:  "a.txt,b.txt",
+		WorkDir: root,
+		GitArgs: []string{"reset", "HEAD", "--", "a.txt", "b.txt"},
+	}
+	got := runtime.BuildDryRunPreview(req)
+	if !reflect.DeepEqual(got.Targets, []string{"a.txt", "b.txt"}) {
+		t.Fatalf("targets = %#v", got.Targets)
+	}
+	wantSummary := `Would unstage 2 path(s) from the index (working tree unchanged): "a.txt", "b.txt".`
+	if got.EffectSummary != wantSummary {
+		t.Fatalf("effect_summary = %q, want %q", got.EffectSummary, wantSummary)
+	}
+}
+
 func TestBuildDryRunPreview_StageFiles(t *testing.T) {
 	t.Helper()
 	root := filepath.Clean("/tmp/repo")

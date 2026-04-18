@@ -13,7 +13,9 @@ func isDestructive(argv []string) bool {
 	}
 	cmd := argv[0]
 	switch cmd {
-	case "reset", "rebase", "filter-branch", "filter-repo", "gc", "maintenance", "update-ref":
+	case "reset":
+		return !resetUnstageIndexPathsOnly(argv)
+	case "rebase", "filter-branch", "filter-repo", "gc", "maintenance", "update-ref":
 		return true
 	case "clean":
 		return hasAnyFlag(argv[1:], "-x", "-f", "-fd", "-ffd", "-dff", "-fx", "-df", "-xd")
