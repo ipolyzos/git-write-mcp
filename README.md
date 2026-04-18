@@ -91,7 +91,69 @@ For code changes:
 | `internal/git` | Allowlisted `Executor` (direct `exec`, no shell) |
 | `internal/policy` | Ref/branch/tag validation, repo path containment, Approver extension |
 | `internal/audit` | Structured audit `Record`, `Sink`, `Logger` |
-| `plugins/*` | Thin tool plugins (names only until tools are implemented) |
+| `plugins/*` | Tool plugins (`create_branch` implemented; others stub) |
+
+---
+
+## Configuration (stdio server)
+
+The process must know which repository to operate on and how approvals are decided:
+
+| Environment variable | Meaning |
+|----------------------|---------|
+| `GIT_WRITE_MCP_REPO_ROOT` | **Required** (except `-version`). Absolute or relative path to the Git repository root. |
+| `GIT_WRITE_MCP_AUTO_APPROVE` | If `1`, `true`, `yes`, or `on`, mutations use `policy.AlwaysApprove`. Otherwise `policy.DenyAll` (default safe). |
+| `GIT_WRITE_MCP_ACTOR` | Optional label stored on audit records (default: `mcp`). |
+
+Example:
+
+```bash
+export GIT_WRITE_MCP_REPO_ROOT=/path/to/repo
+export GIT_WRITE_MCP_AUTO_APPROVE=1
+./bin/git-write-mcp
+```
+
+---
+
+## Tool: `create_branch`
+
+Creates a branch with `git branch <branch_name> [<from_ref>]`. Validation uses `policy.ValidateBranchName` and `policy.ValidateRefName`. Execution goes through the shared `runtime.Pipeline` (approval, dry-run preview, gated git, audit).
+
+**Inputs (JSON):**
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `branch_name` | yes | New branch name. |
+| `from_ref` | no | Start point (ref or commit-ish). Omit to branch from current `HEAD`. |
+| `dry_run` | no | If `true`, runs validation + preview only (no branch created). |
+
+**Structured output (`ToolResult`):** `ok`, `mode` (`execute` \| `dry-run` \| `blocked`), `branch_name`, `from_ref`, `dry_run_requested`, `dry_run`, `git_stdout`, `git_stderr`, `error`.
+
+Example success (execute):
+
+```json
+{
+  "ok": true,
+  "branch_name": "feature/foo",
+  "from_ref": "",
+  "dry_run_requested": false,
+  "mode": "execute",
+  "git_stdout": "",
+  "git_stderr": ""
+}
+```
+
+Example dry-run:
+
+```json
+{
+  "ok": true,
+  "branch_name": "feature/foo",
+  "dry_run_requested": true,
+  "mode": "dry-run",
+  "dry_run": true
+}
+```
 
 ---
 

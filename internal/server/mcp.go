@@ -11,12 +11,13 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/ipolyzos/git-write-mcp/internal/plugin"
+	"github.com/ipolyzos/git-write-mcp/plugins/create_branch"
 )
 
 const stubToolDescription = "Controlled Git write operation (behavior not implemented yet)."
 
-// NewMCPServer builds an MCP [mcp.Server] with stub tool handlers for every name in reg.
-func NewMCPServer(version string, reg *plugin.Registry) *mcp.Server {
+// NewMCPServer builds an MCP server. Tools with dedicated implementations skip the generic stub.
+func NewMCPServer(version string, reg *plugin.Registry, cfg ServeConfig) *mcp.Server {
 	if reg == nil {
 		panic("server: NewMCPServer with nil registry")
 	}
@@ -25,8 +26,17 @@ func NewMCPServer(version string, reg *plugin.Registry) *mcp.Server {
 		Version: version,
 	}, nil)
 
+	implemented := map[string]struct{}{}
+	if cfg.Pipeline != nil && cfg.RepoRoot != "" {
+		implemented["create_branch"] = struct{}{}
+		create_branch.RegisterMCPTool(s, cfg.Pipeline, cfg.RepoRoot, cfg.Actor)
+	}
+
 	for _, name := range reg.Names() {
 		name := name
+		if _, skip := implemented[name]; skip {
+			continue
+		}
 		mcp.AddTool(s, &mcp.Tool{
 			Name:        name,
 			Description: stubToolDescription,
@@ -39,11 +49,12 @@ func NewMCPServer(version string, reg *plugin.Registry) *mcp.Server {
 			}, nil, nil
 		})
 	}
+
 	return s
 }
 
-// RunStdio serves the MCP protocol on stdin/stdout using tools registered in reg.
-func RunStdio(ctx context.Context, version string, reg *plugin.Registry) error {
-	s := NewMCPServer(version, reg)
+// RunStdio serves MCP on stdin/stdout using cfg for repository-backed tools.
+func RunStdio(ctx context.Context, version string, reg *plugin.Registry, cfg ServeConfig) error {
+	s := NewMCPServer(version, reg, cfg)
 	return s.Run(ctx, &mcp.StdioTransport{})
 }
