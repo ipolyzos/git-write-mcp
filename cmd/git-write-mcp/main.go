@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 
+	_ "github.com/ipolyzos/git-write-mcp/internal/server"
 	"github.com/ipolyzos/git-write-mcp/internal/version"
 )
 
