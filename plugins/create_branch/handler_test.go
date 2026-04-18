@@ -188,6 +188,12 @@ func TestExecute_DryRunSuccess(t *testing.T) {
 	if !res.OK || res.Mode != "dry-run" {
 		t.Fatalf("unexpected: %+v", res)
 	}
+	if res.DryRunPreview == nil || res.DryRunPreview.Action != "create_branch" ||
+		len(res.DryRunPreview.GitArgv) == 0 || res.DryRunPreview.EffectSummary == "" ||
+		len(res.DryRunPreview.GitCommands) != 1 ||
+		len(res.DryRunPreview.Targets) != 1 || res.DryRunPreview.Targets[0] != "feature/dry" {
+		t.Fatalf("dry_run_preview: %+v", res.DryRunPreview)
+	}
 	out, err := exec.Command("git", "-C", root, "rev-parse", "--verify", "refs/heads/feature/dry").CombinedOutput()
 	if err == nil {
 		t.Fatalf("branch should not exist after dry-run: %s", out)

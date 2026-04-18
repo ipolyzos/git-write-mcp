@@ -217,6 +217,11 @@ func TestExecute_DryRunSuccess(t *testing.T) {
 	if !res.OK || res.Mode != "dry-run" {
 		t.Fatalf("unexpected: %+v", res)
 	}
+	if res.DryRunPreview == nil || res.DryRunPreview.Action != "stage_files" ||
+		len(res.DryRunPreview.GitArgv) == 0 || res.DryRunPreview.EffectSummary == "" ||
+		len(res.DryRunPreview.GitCommands) != 1 || len(res.DryRunPreview.Targets) != 1 {
+		t.Fatalf("dry_run_preview: %+v", res.DryRunPreview)
+	}
 	out, err := exec.Command("git", "-C", root, "diff", "--cached", "--name-only").CombinedOutput()
 	if err != nil {
 		t.Fatalf("git diff: %v\n%s", err, out)

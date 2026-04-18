@@ -114,10 +114,8 @@ func (p *Pipeline) Execute(ctx context.Context, req *MutationRequest) (Result, e
 	}
 
 	skipExec := dec.DryRun || req.DryRunRequested
-	preview := &DryRunPreview{
-		GitArgv: append([]string(nil), req.GitArgs...),
-		WorkDir: req.WorkDir,
-	}
+	previewBody := BuildDryRunPreview(req)
+	preview := &previewBody
 
 	if skipExec {
 		gr, err := p.Git.RunApproved(ctx, req.WorkDir, req.GitArgs, true)

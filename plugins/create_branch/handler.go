@@ -29,15 +29,16 @@ type Handler struct {
 
 // ToolResult is the deterministic JSON-shaped output for MCP and tests.
 type ToolResult struct {
-	OK              bool   `json:"ok"`
-	Error           string `json:"error,omitempty"`
-	BranchName      string `json:"branch_name"`
-	FromRef         string `json:"from_ref,omitempty"`
-	DryRunRequested bool   `json:"dry_run_requested"`
-	Mode            string `json:"mode,omitempty"`
-	DryRun          bool   `json:"dry_run,omitempty"`
-	GitStdout       string `json:"git_stdout,omitempty"`
-	GitStderr       string `json:"git_stderr,omitempty"`
+	OK              bool                   `json:"ok"`
+	Error           string                 `json:"error,omitempty"`
+	BranchName      string                 `json:"branch_name"`
+	FromRef         string                 `json:"from_ref,omitempty"`
+	DryRunRequested bool                   `json:"dry_run_requested"`
+	Mode            string                 `json:"mode,omitempty"`
+	DryRun          bool                   `json:"dry_run,omitempty"`
+	DryRunPreview   *runtime.DryRunPreview `json:"dry_run_preview,omitempty"`
+	GitStdout       string                 `json:"git_stdout,omitempty"`
+	GitStderr       string                 `json:"git_stderr,omitempty"`
 }
 
 // Execute validates inputs and runs the mutation pipeline.
@@ -114,6 +115,7 @@ func toolResultFromRuntime(r runtime.Result, p Params, execErr error) ToolResult
 	if r.DryRunPreview != nil {
 		out.Mode = "dry-run"
 		out.DryRun = true
+		out.DryRunPreview = r.DryRunPreview
 	} else if out.OK {
 		out.Mode = "execute"
 	}
