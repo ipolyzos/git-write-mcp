@@ -19,7 +19,7 @@ Provide MCP tools that can **mutate** a Git repository (branch, index, commits, 
 
 | In scope (this MCP) | Out of scope (use a read Git MCP or the host) |
 |---------------------|-----------------------------------------------|
-| `create_branch`, `stage_files`, `commit_changes`, `tag_revision` (`tag_revision` not implemented) | `git_status`, `git_diff`, `git_log`, `git_show`, `git_blame`, `git_branch_list` |
+| `create_branch`, `stage_files`, `commit_changes`, `tag_revision` | `git_status`, `git_diff`, `git_log`, `git_show`, `git_blame`, `git_branch_list` |
 | Allowlisted `git` invocations; no freestyle shell | Ad-hoc shell, pipe chains, or user-defined commands |
 | Policy + audit around each mutation | History rewriting / destructive defaults (must stay off by default) |
 
@@ -91,7 +91,7 @@ For code changes:
 | `internal/git` | Allowlisted `Executor` (direct `exec`, no shell) |
 | `internal/policy` | Ref/branch/tag/commit-message validation, repo path containment, Approver extension |
 | `internal/audit` | Structured audit `Record`, `Sink`, `Logger` |
-| `plugins/*` | Tool plugins (`create_branch`, `stage_files`, `commit_changes`; `tag_revision` stub) |
+| `plugins/*` | Tool plugins (`create_branch`, `stage_files`, `commit_changes`, `tag_revision`) |
 
 ---
 
@@ -204,6 +204,38 @@ Example success (execute):
 {
   "ok": true,
   "message": "Add export helper",
+  "dry_run_requested": false,
+  "mode": "execute",
+  "git_stdout": "",
+  "git_stderr": ""
+}
+```
+
+---
+
+## Tool: `tag_revision`
+
+Creates an **annotated** tag with `git tag -a <tag_name> -m <message> [<target_ref>]`. Omit `target_ref` to tag `HEAD`. Tag names use `policy.ValidateTagName`; annotation body uses `policy.ValidateCommitMessage`; optional `target_ref` uses `policy.ValidateRefName`. argv does **not** include `-f`/`--force` or `-d` (executor also treats forced tag operations as destructive). Runs through `runtime.Pipeline`.
+
+**Inputs (JSON):**
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `tag_name` | yes | Tag identifier (e.g. `v1.0.0`). |
+| `target_ref` | no | Commit-ish or ref to tag; omit for `HEAD`. |
+| `message` | yes | Annotation message (same rules as commit messages). |
+| `dry_run` | no | If `true`, validation + preview only (no tag created). |
+
+**Structured output (`ToolResult`):** `ok`, `mode` (`execute` \| `dry-run` \| `blocked`), `tag_name`, `target_ref`, `message`, `dry_run_requested`, `dry_run`, `git_stdout`, `git_stderr`, `error`.
+
+Example success (execute):
+
+```json
+{
+  "ok": true,
+  "tag_name": "v1.0.0",
+  "target_ref": "",
+  "message": "Release",
   "dry_run_requested": false,
   "mode": "execute",
   "git_stdout": "",

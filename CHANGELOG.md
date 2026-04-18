@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- MCP tool **`tag_revision`**: annotated tags via `git tag -a -m` only (no force/delete argv), validates tag name, optional target ref, and annotation message; approval, dry-run, audit via `plugins/tag_revision` and `runtime.Pipeline`.
 - MCP tool **`commit_changes`**: validates commit messages (`policy.ValidateCommitMessage`), commits staged changes with allowlisted `git commit -m` only (no amend), approval, dry-run, audit via `plugins/commit_changes` and `runtime.Pipeline`.
 - MCP tool **`stage_files`**: validates and resolves paths under the repo root (traversal-safe), stages via allowlisted `git add`, requires approval, supports dry-run and audit via `plugins/stage_files` and `runtime.Pipeline`.
 - MCP tool **`create_branch`**: validates branch name and optional source ref, requires approval via `policy.Approver`, supports dry-run, emits audit records, runs through `runtime.Pipeline`, returns deterministic structured JSON via `plugins/create_branch`.
@@ -20,5 +21,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `internal/policy`: branch/tag/ref/commit-message validation, `policy.Engine` path checks, `policy.Approver` / `policy.Decision` extension points, `policy.ErrApprovalRequired` when writes lack approval.
 
 - Makefile targets for build, test, vet, format check, lint, and bundled `ci`.
-- Bootstrap layout: `internal/server`, `internal/runtime`, `internal/git`, `internal/policy`, `internal/audit`, `internal/plugin`, and plugins under `plugins/` (`create_branch`, `stage_files`, `commit_changes`, `tag_revision`). `tag_revision` remains a stub until implemented.
-- Minimal stdio MCP server using `github.com/modelcontextprotocol/go-sdk`: `NewMCPServer` / `RunStdio` register registered plugin names as MCP tools with stub `not implemented` responses.
+- Bootstrap layout: `internal/server`, `internal/runtime`, `internal/git`, `internal/policy`, `internal/audit`, `internal/plugin`, and plugins under `plugins/` (`create_branch`, `stage_files`, `commit_changes`, `tag_revision`).
+- Minimal stdio MCP server using `github.com/modelcontextprotocol/go-sdk`: `NewMCPServer` / `RunStdio` register tools; mutations are active when `GIT_WRITE_MCP_REPO_ROOT` resolves and `ServeConfig` supplies the pipeline (otherwise unmanaged tools reply `not implemented`).
