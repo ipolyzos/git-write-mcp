@@ -33,11 +33,12 @@ func TestExecute_ValidBranchCreation(t *testing.T) {
 		t.Fatal(err)
 	}
 	pipe := &runtime.Pipeline{
-		RepoRoot: root,
-		Policy:   eng,
-		Approver: policy.AlwaysApprove{},
-		Git:      ex,
-		Audit:    audit.NewLogger(nil),
+		RepoRoot:  root,
+		Policy:    eng,
+		RepoProbe: git.NewRepoProbe(ex),
+		Approver:  policy.AlwaysApprove{},
+		Git:       ex,
+		Audit:     audit.NewLogger(nil),
 	}
 	h := create_branch.Handler{Pipeline: pipe, Actor: "test"}
 	res, err := h.Execute(ctx, root, create_branch.Params{
@@ -69,11 +70,12 @@ func TestExecute_InvalidBranchName(t *testing.T) {
 		t.Fatal(err)
 	}
 	pipe := &runtime.Pipeline{
-		RepoRoot: root,
-		Policy:   eng,
-		Approver: policy.AlwaysApprove{},
-		Git:      ex,
-		Audit:    audit.NewLogger(nil),
+		RepoRoot:  root,
+		Policy:    eng,
+		RepoProbe: git.NewRepoProbe(ex),
+		Approver:  policy.AlwaysApprove{},
+		Git:       ex,
+		Audit:     audit.NewLogger(nil),
 	}
 	h := create_branch.Handler{Pipeline: pipe, Actor: "test"}
 	_, err = h.Execute(ctx, root, create_branch.Params{
@@ -101,11 +103,12 @@ func TestExecute_InvalidSourceRef(t *testing.T) {
 		t.Fatal(err)
 	}
 	pipe := &runtime.Pipeline{
-		RepoRoot: root,
-		Policy:   eng,
-		Approver: policy.AlwaysApprove{},
-		Git:      ex,
-		Audit:    audit.NewLogger(nil),
+		RepoRoot:  root,
+		Policy:    eng,
+		RepoProbe: git.NewRepoProbe(ex),
+		Approver:  policy.AlwaysApprove{},
+		Git:       ex,
+		Audit:     audit.NewLogger(nil),
 	}
 	h := create_branch.Handler{Pipeline: pipe, Actor: "test"}
 	res, err := h.Execute(ctx, root, create_branch.Params{
@@ -114,7 +117,10 @@ func TestExecute_InvalidSourceRef(t *testing.T) {
 		DryRun:     false,
 	})
 	if err == nil {
-		t.Fatal("expected git error")
+		t.Fatal("expected repo state error")
+	}
+	if !errors.Is(err, policy.ErrRepoState) {
+		t.Fatalf("want ErrRepoState, got %v", err)
 	}
 	if res.OK {
 		t.Fatal("expected failure result")
@@ -134,11 +140,12 @@ func TestExecute_ApprovalDenied(t *testing.T) {
 		t.Fatal(err)
 	}
 	pipe := &runtime.Pipeline{
-		RepoRoot: root,
-		Policy:   eng,
-		Approver: policy.DenyAll{},
-		Git:      ex,
-		Audit:    audit.NewLogger(nil),
+		RepoRoot:  root,
+		Policy:    eng,
+		RepoProbe: git.NewRepoProbe(ex),
+		Approver:  policy.DenyAll{},
+		Git:       ex,
+		Audit:     audit.NewLogger(nil),
 	}
 	h := create_branch.Handler{Pipeline: pipe, Actor: "test"}
 	_, err = h.Execute(ctx, root, create_branch.Params{
@@ -163,11 +170,12 @@ func TestExecute_DryRunSuccess(t *testing.T) {
 		t.Fatal(err)
 	}
 	pipe := &runtime.Pipeline{
-		RepoRoot: root,
-		Policy:   eng,
-		Approver: policy.AlwaysApprove{},
-		Git:      ex,
-		Audit:    audit.NewLogger(nil),
+		RepoRoot:  root,
+		Policy:    eng,
+		RepoProbe: git.NewRepoProbe(ex),
+		Approver:  policy.AlwaysApprove{},
+		Git:       ex,
+		Audit:     audit.NewLogger(nil),
 	}
 	h := create_branch.Handler{Pipeline: pipe, Actor: "test"}
 	res, err := h.Execute(ctx, root, create_branch.Params{
@@ -199,11 +207,12 @@ func TestExecute_GitExecutionFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	pipe := &runtime.Pipeline{
-		RepoRoot: root,
-		Policy:   eng,
-		Approver: policy.AlwaysApprove{},
-		Git:      ex,
-		Audit:    audit.NewLogger(nil),
+		RepoRoot:  root,
+		Policy:    eng,
+		RepoProbe: git.NewRepoProbe(ex),
+		Approver:  policy.AlwaysApprove{},
+		Git:       ex,
+		Audit:     audit.NewLogger(nil),
 	}
 	h := create_branch.Handler{Pipeline: pipe, Actor: "test"}
 	res, err := h.Execute(ctx, root, create_branch.Params{
@@ -213,6 +222,9 @@ func TestExecute_GitExecutionFailure(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected error")
+	}
+	if !errors.Is(err, policy.ErrRepoState) {
+		t.Fatalf("want ErrRepoState, got %v", err)
 	}
 	if res.OK {
 		t.Fatal("expected ok=false")

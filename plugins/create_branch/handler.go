@@ -54,13 +54,16 @@ func (h *Handler) Execute(ctx context.Context, repoRoot string, p Params) (ToolR
 		actor = "mcp"
 	}
 
+	fromRef := strings.TrimSpace(p.FromRef)
 	mr := &runtime.MutationRequest{
-		Actor:           actor,
-		Action:          "create_branch",
-		Target:          p.BranchName,
-		WorkDir:         abs,
-		GitArgs:         gitArgv(p),
-		DryRunRequested: p.DryRun,
+		Actor:              actor,
+		Action:             "create_branch",
+		Target:             p.BranchName,
+		WorkDir:            abs,
+		GitArgs:            gitArgv(p),
+		DryRunRequested:    p.DryRun,
+		FromRef:            fromRef,
+		RejectDetachedHEAD: true,
 		Validate: func() error {
 			if strings.TrimSpace(p.BranchName) == "" {
 				return &policy.ValidationError{Field: "branch_name", Msg: "required"}
@@ -68,8 +71,8 @@ func (h *Handler) Execute(ctx context.Context, repoRoot string, p Params) (ToolR
 			if err := policy.ValidateBranchName(p.BranchName); err != nil {
 				return err
 			}
-			if strings.TrimSpace(p.FromRef) != "" {
-				if err := policy.ValidateRefName(p.FromRef); err != nil {
+			if fromRef != "" {
+				if err := policy.ValidateRefName(fromRef); err != nil {
 					return err
 				}
 			}

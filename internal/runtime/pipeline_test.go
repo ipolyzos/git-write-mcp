@@ -24,9 +24,10 @@ func TestPipeline_DryRunDoesNotInvokeGitBinary(t *testing.T) {
 	root := initGitRepo(t)
 	var gitCalls int
 	p := &runtime.Pipeline{
-		RepoRoot: root,
-		Policy:   mustEngine(t, root),
-		Approver: alwaysApproveDryRun{},
+		RepoRoot:  root,
+		Policy:    mustEngine(t, root),
+		RepoProbe: git.NewRepoProbe(mustExec(t, root)),
+		Approver:  alwaysApproveDryRun{},
 		Git: runnerFunc(func(ctx context.Context, workDir string, argv []string, skipExecution bool) (git.RunResult, error) {
 			gitCalls++
 			if !skipExecution {
@@ -66,10 +67,11 @@ func TestPipeline_EmitAuditContainsRequiredFields(t *testing.T) {
 	}
 	var got audit.Record
 	p := &runtime.Pipeline{
-		RepoRoot: root,
-		Policy:   mustEngine(t, root),
-		Approver: alwaysApproveExec{},
-		Git:      ex,
+		RepoRoot:  root,
+		Policy:    mustEngine(t, root),
+		RepoProbe: git.NewRepoProbe(ex),
+		Approver:  alwaysApproveExec{},
+		Git:       ex,
 		Audit: audit.NewLogger(audit.SinkFunc(func(_ context.Context, r audit.Record) error {
 			got = r
 			return nil
@@ -78,10 +80,10 @@ func TestPipeline_EmitAuditContainsRequiredFields(t *testing.T) {
 	ctx := context.Background()
 	req := &runtime.MutationRequest{
 		Actor:   "actor1",
-		Action:  "commit_changes",
-		Target:  "index",
+		Action:  "create_branch",
+		Target:  "feature/audit-emission",
 		WorkDir: root,
-		GitArgs: []string{"rev-parse", "--is-inside-work-tree"},
+		GitArgs: []string{"branch", "feature/audit-emission"},
 	}
 	_, err = p.Execute(ctx, req)
 	if err != nil {
@@ -93,10 +95,10 @@ func TestPipeline_EmitAuditContainsRequiredFields(t *testing.T) {
 	if got.Actor != "actor1" {
 		t.Fatalf("actor = %q", got.Actor)
 	}
-	if got.Action != "commit_changes" {
+	if got.Action != "create_branch" {
 		t.Fatalf("action = %q", got.Action)
 	}
-	if got.Target != "index" {
+	if got.Target != "feature/audit-emission" {
 		t.Fatalf("target = %q", got.Target)
 	}
 	if got.Mode != audit.ModeExecute {
@@ -115,11 +117,12 @@ func TestPipeline_ApproverNilRejected(t *testing.T) {
 		t.Fatal(err)
 	}
 	p := &runtime.Pipeline{
-		RepoRoot: root,
-		Policy:   mustEngine(t, root),
-		Approver: nil,
-		Git:      ex,
-		Audit:    audit.NewLogger(audit.SinkFunc(func(context.Context, audit.Record) error { return nil })),
+		RepoRoot:  root,
+		Policy:    mustEngine(t, root),
+		RepoProbe: git.NewRepoProbe(ex),
+		Approver:  nil,
+		Git:       ex,
+		Audit:     audit.NewLogger(audit.SinkFunc(func(context.Context, audit.Record) error { return nil })),
 	}
 	ctx := context.Background()
 	req := &runtime.MutationRequest{
@@ -139,9 +142,10 @@ func TestPipeline_NilMutationRequestRejected(t *testing.T) {
 	t.Helper()
 	root := initGitRepo(t)
 	p := &runtime.Pipeline{
-		RepoRoot: root,
-		Policy:   mustEngine(t, root),
-		Approver: alwaysApproveExec{},
+		RepoRoot:  root,
+		Policy:    mustEngine(t, root),
+		RepoProbe: git.NewRepoProbe(mustExec(t, root)),
+		Approver:  alwaysApproveExec{},
 		Git: runnerFunc(func(context.Context, string, []string, bool) (git.RunResult, error) {
 			t.Fatal("git should not run")
 			return git.RunResult{}, nil
@@ -160,9 +164,10 @@ func TestPipeline_RequestValidateFailsBeforeGit(t *testing.T) {
 	root := initGitRepo(t)
 	var gitCalls int
 	p := &runtime.Pipeline{
-		RepoRoot: root,
-		Policy:   mustEngine(t, root),
-		Approver: alwaysApproveExec{},
+		RepoRoot:  root,
+		Policy:    mustEngine(t, root),
+		RepoProbe: git.NewRepoProbe(mustExec(t, root)),
+		Approver:  alwaysApproveExec{},
 		Git: runnerFunc(func(context.Context, string, []string, bool) (git.RunResult, error) {
 			gitCalls++
 			return git.RunResult{}, nil
@@ -207,6 +212,15 @@ func (alwaysApproveExec) Approve(context.Context, policy.InvocationRequest) (pol
 	return policy.Decision{Approved: true, DryRun: false}, nil
 }
 
+func mustExec(t *testing.T, root string) *git.Executor {
+	t.Helper()
+	ex, err := git.NewExecutor(git.ExecutorOptions{RepoRoot: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return ex
+}
+
 func mustEngine(t *testing.T, root string) *policy.Engine {
 	t.Helper()
 	e, err := policy.NewEngine(root)
@@ -232,6 +246,9 @@ func initGitRepo(t *testing.T) string {
 		if err := exec.Command(args[0], args[1:]...).Run(); err != nil {
 			t.Fatal(err)
 		}
+	}
+	if out, err := exec.Command("git", "-C", dir, "commit", "--allow-empty", "-m", "Add repository baseline").CombinedOutput(); err != nil {
+		t.Fatalf("git commit: %v\n%s", err, out)
 	}
 	abs, err := filepath.Abs(dir)
 	if err != nil {

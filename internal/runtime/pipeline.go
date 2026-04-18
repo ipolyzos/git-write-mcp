@@ -7,6 +7,8 @@ package runtime
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/ipolyzos/git-write-mcp/internal/audit"
@@ -23,14 +25,16 @@ type GitRunner interface {
 type Pipeline struct {
 	RepoRoot string
 	Policy   *policy.Engine
-	Approver policy.Approver
-	Git      GitRunner
-	Audit    *audit.Logger
+	// RepoProbe supplies read-only git inspection for [policy.ValidateRepoState]. Nil skips git probes.
+	RepoProbe policy.RepoGitProbe
+	Approver  policy.Approver
+	Git       GitRunner
+	Audit     *audit.Logger
 }
 
 // Execute runs the mutation pipeline steps in order:
 // 1. request validation
-// 2. repository boundary (policy engine)
+// 2. repository state ([policy.ValidateRepoState])
 // 3. centralized approval
 // 4. dry-run preview + gated skip (no mutation)
 // 5. git execution
@@ -70,13 +74,26 @@ func (p *Pipeline) Execute(ctx context.Context, req *MutationRequest) (Result, e
 		}
 	}
 
+	repoRoot := strings.TrimSpace(p.RepoRoot)
+	if p.Policy != nil && repoRoot == "" {
+		repoRoot = p.Policy.RepoRoot()
+	}
 	if p.Policy != nil {
-		if err := p.Policy.MustBeContainedUnderRepo(req.WorkDir); err != nil {
+		rs := policy.ValidateRepoState(ctx, p.Policy, p.RepoProbe, policy.RepoStateCheckInput{
+			RepoRoot:           repoRoot,
+			WorkDir:            req.WorkDir,
+			Action:             req.Action,
+			FromRef:            req.FromRef,
+			TargetRef:          req.TargetRef,
+			RejectDetachedHEAD: req.RejectDetachedHEAD,
+			RequireStagedIndex: req.RequireStagedIndex,
+		})
+		if !rs.OK {
 			rec.Mode = audit.ModeBlocked
 			rec.Outcome = audit.OutcomeFailure
-			rec.Detail = err.Error()
+			rec.Detail = rs.Detail
 			p.emit(ctx, rec)
-			return Result{}, err
+			return Result{}, fmt.Errorf("%w: %v", policy.ErrRepoState, rs.Detail)
 		}
 	}
 

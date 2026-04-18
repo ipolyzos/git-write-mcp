@@ -210,11 +210,12 @@ func testPipeline(t *testing.T, repoRoot string, appr policy.Approver, sink audi
 		t.Fatal(err)
 	}
 	return &runtime.Pipeline{
-		RepoRoot: repoRoot,
-		Policy:   eng,
-		Approver: appr,
-		Git:      ex,
-		Audit:    audit.NewLogger(sink),
+		RepoRoot:  repoRoot,
+		Policy:    eng,
+		RepoProbe: git.NewRepoProbe(ex),
+		Approver:  appr,
+		Git:       ex,
+		Audit:     audit.NewLogger(sink),
 	}
 }
 

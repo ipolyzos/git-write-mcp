@@ -16,6 +16,15 @@ type MutationRequest struct {
 	WorkDir string
 	GitArgs []string
 
+	// FromRef and TargetRef are optional refs for [policy.ValidateRepoState] (syntax + existence checks).
+	FromRef   string
+	TargetRef string
+
+	// RejectDetachedHEAD rejects mutations when HEAD is detached (tools that assume a branch).
+	RejectDetachedHEAD bool
+	// RequireStagedIndex rejects commit mutations when the index has no staged changes.
+	RequireStagedIndex bool
+
 	// DryRunRequested asks for a preview only (no git mutation); combined with [policy.Decision.DryRun].
 	DryRunRequested bool
 
