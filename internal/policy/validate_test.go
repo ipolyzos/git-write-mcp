@@ -58,3 +58,28 @@ func TestValidateRefName_RejectsLongString(t *testing.T) {
 		t.Fatal("expected error for excessive length")
 	}
 }
+
+func TestValidateCommitMessage_Required(t *testing.T) {
+	t.Helper()
+	for _, msg := range []string{"", " \t "} {
+		if err := policy.ValidateCommitMessage(msg); err == nil {
+			t.Fatalf("expected error for %q", msg)
+		}
+	}
+}
+
+func TestValidateCommitMessage_AcceptsMultiline(t *testing.T) {
+	t.Helper()
+	msg := "Add export\n\nBody line."
+	if err := policy.ValidateCommitMessage(msg); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestValidateCommitMessage_RejectsTooLong(t *testing.T) {
+	t.Helper()
+	msg := strings.Repeat("x", policy.MaxCommitMessageRunes+1)
+	if err := policy.ValidateCommitMessage(msg); err == nil {
+		t.Fatal("expected error")
+	}
+}
