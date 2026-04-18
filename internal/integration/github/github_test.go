@@ -393,6 +393,34 @@ func TestClient_GetPullRequestStatus_HTTPErrorOnPR(t *testing.T) {
 	}
 }
 
+func TestClient_MergePullRequest_Success(t *testing.T) {
+	t.Helper()
+	ctx := context.Background()
+	cfg := gh.Config{
+		Repository: gh.Repository{Owner: "o", Name: "r"},
+		Token:      "t",
+	}
+	cl, err := gh.NewClient(cfg, fakeHTTP(func(req *http.Request) (*http.Response, error) {
+		if req.Method != http.MethodPut || req.URL.Path != "/repos/o/r/pulls/9/merge" {
+			t.Fatalf("unexpected request %s %s", req.Method, req.URL.Path)
+		}
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(`{"merged":true,"message":"Merged","sha":"zzz"}`)),
+		}, nil
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := cl.MergePullRequest(ctx, "o", "r", 9, gh.MergePullRequestInput{MergeMethod: "squash"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.Merged || res.SHA != "zzz" || res.Message != "Merged" {
+		t.Fatalf("%+v", res)
+	}
+}
+
 func TestClient_GetPullRequestStatus_RepoMismatch(t *testing.T) {
 	t.Helper()
 	ctx := context.Background()

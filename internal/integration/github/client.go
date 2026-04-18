@@ -219,14 +219,47 @@ func readHTTPBody(res *http.Response) ([]byte, error) {
 	return io.ReadAll(io.LimitReader(res.Body, 8<<20))
 }
 
-// MergePullRequest implements [Integration] (placeholder).
+// MergePullRequest merges a pull request via PUT /repos/{owner}/{repo}/pulls/{number}/merge.
 func (c *Client) MergePullRequest(ctx context.Context, owner, repo string, number int, in MergePullRequestInput) (*MergePullRequestResult, error) {
-	_ = ctx
-	_ = owner
-	_ = repo
-	_ = number
-	_ = in
-	return nil, ErrNotImplemented
+	if c == nil {
+		return nil, fmt.Errorf("github: nil client")
+	}
+	if err := c.assertRepo(owner, repo); err != nil {
+		return nil, err
+	}
+	if number < 1 {
+		return nil, fmt.Errorf("github: invalid pull request number")
+	}
+	mm := strings.TrimSpace(strings.ToLower(in.MergeMethod))
+	switch mm {
+	case "merge", "squash", "rebase":
+	default:
+		return nil, fmt.Errorf("github: merge_method must be merge, squash, or rebase")
+	}
+	o := strings.TrimSpace(c.cfg.Repository.Owner)
+	n := strings.TrimSpace(c.cfg.Repository.Name)
+	path := "/repos/" + url.PathEscape(o) + "/" + url.PathEscape(n) + "/pulls/" + strconv.Itoa(number) + "/merge"
+	payload := map[string]string{"merge_method": mm}
+	b, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+	res, err := c.doAuthorizedJSON(ctx, http.MethodPut, path, b)
+	if err != nil {
+		return nil, err
+	}
+	body, err := readHTTPBody(res)
+	if err != nil {
+		return nil, err
+	}
+	if res.StatusCode < 200 || res.StatusCode >= 300 {
+		return nil, fmt.Errorf("github: merge PR: HTTP %d: %s", res.StatusCode, strings.TrimSpace(string(body)))
+	}
+	out, err := DecodeMergeResponse(body)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
 }
 
 // CreateRelease implements [Integration] (placeholder).

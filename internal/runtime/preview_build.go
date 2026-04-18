@@ -79,6 +79,11 @@ func previewTargets(req *MutationRequest) []string {
 			return nil
 		}
 		return []string{s}
+	case "merge_pull_request":
+		if req.PRMergeNumber > 0 {
+			return []string{strconv.Itoa(req.PRMergeNumber)}
+		}
+		return nil
 	default:
 		s := strings.TrimSpace(req.Target)
 		if s == "" {
@@ -103,6 +108,10 @@ func previewSecondaryRefs(req *MutationRequest) []string {
 			return []string{req.PushRemote}
 		}
 	case "create_pull_request":
+		if t := strings.TrimSpace(req.PRTargetBranch); t != "" {
+			return []string{t}
+		}
+	case "merge_pull_request":
 		if t := strings.TrimSpace(req.PRTargetBranch); t != "" {
 			return []string{t}
 		}
@@ -159,19 +168,30 @@ func previewEffectSummary(req *MutationRequest) string {
 		ti := strings.TrimSpace(req.PRTitle)
 		return fmt.Sprintf(`Would open pull request %q from %q into %q (draft=%v).`,
 			ti, strings.TrimSpace(req.PRSourceBranch), strings.TrimSpace(req.PRTargetBranch), req.PRDraft)
+	case "merge_pull_request":
+		return fmt.Sprintf(`Would merge pull request #%d into %q using merge_method=%q after policy gates (checks, reviews, mergeability).`,
+			req.PRMergeNumber, strings.TrimSpace(req.PRTargetBranch), strings.TrimSpace(req.PRMergeMethod))
 	default:
 		return `Would run git with the planned arguments (dry-run; no repository changes).`
 	}
 }
 
 func plannedPreviewCommandLine(req *MutationRequest, wd string, argv []string) string {
-	if req != nil && req.Action == "create_pull_request" {
-		o := strings.TrimSpace(req.GitHubOwner)
-		r := strings.TrimSpace(req.GitHubRepo)
+	if req == nil {
+		return plannedGitCommandLine(wd, argv)
+	}
+	o := strings.TrimSpace(req.GitHubOwner)
+	r := strings.TrimSpace(req.GitHubRepo)
+	switch req.Action {
+	case "create_pull_request":
 		return fmt.Sprintf("GitHub API POST /repos/%s/%s/pulls head=%q base=%q draft=%v",
 			o, r, strings.TrimSpace(req.PRSourceBranch), strings.TrimSpace(req.PRTargetBranch), req.PRDraft)
+	case "merge_pull_request":
+		return fmt.Sprintf("GitHub API PUT /repos/%s/%s/pulls/%d/merge merge_method=%s",
+			o, r, req.PRMergeNumber, strings.TrimSpace(req.PRMergeMethod))
+	default:
+		return plannedGitCommandLine(wd, argv)
 	}
-	return plannedGitCommandLine(wd, argv)
 }
 
 func plannedGitCommandLine(workDir string, argv []string) string {

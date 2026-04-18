@@ -4,10 +4,11 @@
 
 package github
 
-// MCPGitHub is the GitHub REST surface used by stdio MCP (PR create + PR status reads).
+// MCPGitHub is the GitHub REST surface used by stdio MCP (PR create, reads, merge).
 type MCPGitHub interface {
 	PRWriter
 	PRStatusReader
+	PRMerger
 }
 
 var _ MCPGitHub = (*Client)(nil)

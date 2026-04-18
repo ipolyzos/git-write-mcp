@@ -19,7 +19,7 @@ Provide MCP tools that can **mutate** a Git repository (branch, index, commits, 
 
 | In scope (this MCP) | Out of scope (use a read Git MCP or the host) |
 |---------------------|-----------------------------------------------|
-| `create_branch`, `create_pull_request`, `push_branch`, `stage_files`, `unstage_files`, `commit_changes`, `tag_revision`; read-only **`get_pull_request_status`** (GitHub REST, requires token + repo env) | `git_status`, `git_diff`, `git_log`, `git_show`, `git_blame`, `git_branch_list` |
+| `create_branch`, `create_pull_request`, **`merge_pull_request`**, `push_branch`, `stage_files`, `unstage_files`, `commit_changes`, `tag_revision`; read-only **`get_pull_request_status`** (GitHub REST, requires token + repo env) | `git_status`, `git_diff`, `git_log`, `git_show`, `git_blame`, `git_branch_list` |
 | Allowlisted `git` invocations; no freestyle shell | Ad-hoc shell, pipe chains, or user-defined commands |
 | Policy + audit around each mutation | History rewriting / destructive defaults (must stay off by default) |
 
@@ -94,7 +94,7 @@ CI and **`make test`** / **`make ci`** run **`go test -race ./...`** (data race 
 | `internal/policy` | Ref/branch/tag/commit-message validation, repo path containment, Approver extension |
 | `internal/audit` | Structured audit `Record`, `Sink`, `Logger` |
 | `internal/integration/github` | GitHub REST foundation (`Config`, `Client`, `Integration`); see `docs/github-integration.md` |
-| `plugins/*` | Tool plugins (`create_branch`, `create_pull_request`, `get_pull_request_status`, `push_branch`, `stage_files`, `unstage_files`, `commit_changes`, `tag_revision`) |
+| `plugins/*` | Tool plugins (`create_branch`, `create_pull_request`, `get_pull_request_status`, `merge_pull_request`, `push_branch`, `stage_files`, `unstage_files`, `commit_changes`, `tag_revision`) |
 
 ---
 
@@ -108,8 +108,14 @@ The process must know which repository to operate on and how approvals are decid
 | `GIT_WRITE_MCP_AUTO_APPROVE` | If `1`, `true`, `yes`, or `on`, mutations use `policy.AlwaysApprove`. Otherwise `policy.DenyAll` (default safe). |
 | `GIT_WRITE_MCP_ACTOR` | Optional label stored on audit records (default: `mcp`). |
 | `GIT_WRITE_MCP_ALLOWED_PUSH_REMOTES` | Comma-separated remote names allowed for **`push_branch`** (default: `origin`). Example: `origin,upstream`. |
-| `GIT_WRITE_MCP_ALLOWED_PR_TARGET_BRANCHES` | Comma-separated base branch names allowed for **`create_pull_request`** (default: **`develop`**). |
-| `GITHUB_TOKEN` | Bearer token for GitHub REST (required for **`create_pull_request`** and **`get_pull_request_status`** when the GitHub client initializes at server start). |
+| `GIT_WRITE_MCP_ALLOWED_PR_TARGET_BRANCHES` | Comma-separated base branch names allowed for **`create_pull_request`** and the **PR base ref** checked before **`merge_pull_request`** (default: **`develop`**). |
+| `GIT_WRITE_MCP_MERGE_ALLOWED_METHODS` | Comma-separated GitHub **`merge_method`** values allowed for **`merge_pull_request`**: `merge`, `squash`, `rebase` (default: **`squash`** only). |
+| `GIT_WRITE_MCP_MERGE_REQUIRE_GREEN_CHECKS` | Default **`1`**: combined commit **`checks_summary.state`** must be **`success`** before merge. Set **`0`** to disable (unsafe). |
+| `GIT_WRITE_MCP_MERGE_ALLOW_PENDING_CHECKS` | Default **`0`**: **`pending`** checks block merge. Set **`1`** to allow merging while checks are still pending (dangerous). |
+| `GIT_WRITE_MCP_MERGE_MIN_APPROVALS` | Minimum count of **`APPROVED`** reviews from the PR reviews API (default **`1`**). |
+| `GIT_WRITE_MCP_MERGE_BLOCK_ON_CHANGES_REQUESTED` | Default **`1`**: merge blocked if any review has **`CHANGES_REQUESTED`**. Set **`0`** to ignore. |
+| `GIT_WRITE_MCP_MERGE_REQUIRE_CLEAN_MERGEABILITY` | Default **`1`**: GitHub **`mergeable_state`** must be **`clean`**. |
+| `GITHUB_TOKEN` | Bearer token for GitHub REST (required for **`create_pull_request`**, **`get_pull_request_status`**, and **`merge_pull_request`** when the GitHub client initializes at server start). |
 | `GITHUB_REPOSITORY` | Repository as **`owner/name`** (e.g. **`octocat/Hello-World`**). Alternative: set **`GITHUB_REPOSITORY_OWNER`** and **`GITHUB_REPOSITORY_NAME`**. |
 
 Example:
@@ -237,6 +243,45 @@ Example success:
       "dismissed": 0
     }
   }
+}
+```
+
+---
+
+## Tool: `merge_pull_request`
+
+Merges an open pull request via **`PUT /repos/{owner}/{repo}/pulls/{number}/merge`** only after:
+
+1. **Repository policy:** the PR’s **`base_ref`** is in **`GIT_WRITE_MCP_ALLOWED_PR_TARGET_BRANCHES`** (same list as **`create_pull_request`**).
+2. **Merge method:** **`merge_method`** is allowlisted (**`GIT_WRITE_MCP_MERGE_ALLOWED_METHODS`**); omitted or empty defaults to **`squash`**.
+3. **Checks:** combined status for the PR head SHA must be **`success`** unless **`GIT_WRITE_MCP_MERGE_ALLOW_PENDING_CHECKS`** allows **`pending`** (see Configuration).
+4. **Reviews:** at least **`GIT_WRITE_MCP_MERGE_MIN_APPROVALS`** approving reviews; **`GIT_WRITE_MCP_MERGE_BLOCK_ON_CHANGES_REQUESTED`** blocks when **`changes_requested`** counts are greater than zero.
+5. **Mergeability:** **`mergeable_state`** must be **`clean`** when **`GIT_WRITE_MCP_MERGE_REQUIRE_CLEAN_MERGEABILITY`** is on (default).
+
+Uses **`runtime.Pipeline`** (approval, dry-run preview of the PUT, audit). Draft or already-merged PRs are rejected before calling GitHub. Registered only when **`GIT_WRITE_MCP_REPO_ROOT`** is set **and** the GitHub client loads (**`GITHUB_TOKEN`** + repo env).
+
+**Inputs (JSON):**
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `pull_request_number` | yes | Numeric PR number in the configured repo. |
+| `merge_method` | no | `merge`, `squash`, or `rebase` (default **`squash`** after policy normalization). |
+| `dry_run` | no | If `true`, fetch PR status + policy validation + preview only (no merge API call). |
+
+**Structured output (`ToolResult`):** `ok`, `mode`, `pull_request_number`, `base_ref`, `merge_method`, `merged_sha`, `merge_message`, `dry_run_requested`, `dry_run_preview`, `error`.
+
+Example success (execute):
+
+```json
+{
+  "ok": true,
+  "pull_request_number": 42,
+  "base_ref": "develop",
+  "merge_method": "squash",
+  "merged_sha": "abc123def456",
+  "merge_message": "Pull Request successfully merged",
+  "dry_run_requested": false,
+  "mode": "execute"
 }
 ```
 

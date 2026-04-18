@@ -211,6 +211,31 @@ func TestBuildDryRunPreview_CreatePullRequest(t *testing.T) {
 	}
 }
 
+func TestBuildDryRunPreview_MergePullRequest(t *testing.T) {
+	t.Helper()
+	root := filepath.Join(t.TempDir(), "repo")
+	req := &runtime.MutationRequest{
+		Action:         "merge_pull_request",
+		WorkDir:        root,
+		GitArgs:        []string{"merge_pull_request", "9", "squash"},
+		PRMergeNumber:  9,
+		PRMergeMethod:  "squash",
+		PRTargetBranch: "develop",
+		GitHubOwner:    "a",
+		GitHubRepo:     "b",
+	}
+	got := runtime.BuildDryRunPreview(req)
+	if got.Action != "merge_pull_request" {
+		t.Fatalf("action = %q", got.Action)
+	}
+	if len(got.GitCommands) != 1 || !strings.Contains(got.GitCommands[0], "GitHub API PUT /repos/a/b/pulls/9/merge") {
+		t.Fatalf("GitCommands = %#v", got.GitCommands)
+	}
+	if !reflect.DeepEqual(got.Targets, []string{"9"}) || !reflect.DeepEqual(got.SecondaryRefs, []string{"develop"}) {
+		t.Fatalf("targets=%v secondary=%v", got.Targets, got.SecondaryRefs)
+	}
+}
+
 func TestDryRunPreview_JSONDeterministic(t *testing.T) {
 	t.Helper()
 	req := &runtime.MutationRequest{
