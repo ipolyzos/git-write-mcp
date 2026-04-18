@@ -33,3 +33,11 @@ func (e *Engine) MustBeContainedUnderRepo(candidate string) error {
 	}
 	return pathcheck.MustBeContainedUnderRoot(e.repoRoot, candidate)
 }
+
+// RepoRoot returns the absolute repository root bound to this engine.
+func (e *Engine) RepoRoot() string {
+	if e == nil {
+		return ""
+	}
+	return e.repoRoot
+}

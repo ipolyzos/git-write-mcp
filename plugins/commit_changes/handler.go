@@ -54,12 +54,13 @@ func (h *Handler) Execute(ctx context.Context, repoRoot string, p Params) (ToolR
 	}
 
 	mr := &runtime.MutationRequest{
-		Actor:           actor,
-		Action:          "commit_changes",
-		Target:          auditTargetFromMessage(p.Message),
-		WorkDir:         abs,
-		GitArgs:         []string{"commit", "-m", p.Message},
-		DryRunRequested: p.DryRun,
+		Actor:              actor,
+		Action:             "commit_changes",
+		Target:             auditTargetFromMessage(p.Message),
+		WorkDir:            abs,
+		GitArgs:            []string{"commit", "-m", p.Message},
+		DryRunRequested:    p.DryRun,
+		RequireStagedIndex: true,
 		Validate: func() error {
 			return policy.ValidateCommitMessage(p.Message)
 		},

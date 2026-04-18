@@ -42,11 +42,12 @@ func BuildServeConfig(repoRoot string) (ServeConfig, error) {
 	}
 	lg := audit.NewLogger(nil)
 	pipe := &runtime.Pipeline{
-		RepoRoot: abs,
-		Policy:   eng,
-		Approver: ApproverFromEnv(),
-		Git:      ex,
-		Audit:    lg,
+		RepoRoot:  abs,
+		Policy:    eng,
+		RepoProbe: git.NewRepoProbe(ex),
+		Approver:  ApproverFromEnv(),
+		Git:       ex,
+		Audit:     lg,
 	}
 	actor := strings.TrimSpace(os.Getenv("GIT_WRITE_MCP_ACTOR"))
 	if actor == "" {

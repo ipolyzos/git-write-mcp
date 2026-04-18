@@ -25,6 +25,11 @@ func allowlisted(argv []string) bool {
 	if len(argv) == 0 {
 		return false
 	}
-	_, ok := allowedFirst[argv[0]]
-	return ok
+	switch argv[0] {
+	case "diff":
+		return len(argv) == 3 && argv[1] == "--cached" && argv[2] == "--quiet"
+	default:
+		_, ok := allowedFirst[argv[0]]
+		return ok
+	}
 }
