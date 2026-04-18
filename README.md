@@ -88,8 +88,8 @@ For code changes:
 | `internal/server` | MCP server wiring (bootstrap registers plugins) |
 | `internal/runtime` | Process/runtime configuration (stub) |
 | `internal/plugin` | Plugin registry and interface |
-| `internal/git` | Git CLI boundary (stub) |
-| `internal/policy` | Policy engine (stub) |
+| `internal/git` | Allowlisted `Executor` (direct `exec`, no shell) |
+| `internal/policy` | Ref/branch/tag validation, repo path containment, Approver extension |
 | `internal/audit` | Audit logger (stub) |
 | `plugins/*` | Thin tool plugins (names only until tools are implemented) |
 
