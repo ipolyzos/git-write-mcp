@@ -52,6 +52,7 @@ type ApprovalDecision struct {
 var supportedMutationActions = map[string]struct{}{
 	"create_branch":       {},
 	"create_pull_request": {},
+	"merge_pull_request":  {},
 	"push_branch":         {},
 	"stage_files":         {},
 	"unstage_files":       {},

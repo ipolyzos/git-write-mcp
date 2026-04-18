@@ -52,11 +52,17 @@ type PullRequestStatus struct {
 	ReviewsSummary ReviewsSummary `json:"reviews_summary"`
 }
 
-// MergePullRequestInput is a placeholder for merge API options.
-type MergePullRequestInput struct{}
+// MergePullRequestInput is the JSON body for PUT /repos/{owner}/{repo}/pulls/{pull_number}/merge.
+type MergePullRequestInput struct {
+	MergeMethod string // merge, squash, rebase (GitHub REST)
+}
 
-// MergePullRequestResult is a placeholder for merge API responses.
-type MergePullRequestResult struct{}
+// MergePullRequestResult is the minimal successful merge API response shape.
+type MergePullRequestResult struct {
+	Merged  bool   `json:"merged"`
+	Message string `json:"message"`
+	SHA     string `json:"sha"`
+}
 
 // CreatePullRequestInput is the body for POST /repos/{owner}/{repo}/pulls.
 type CreatePullRequestInput struct {
