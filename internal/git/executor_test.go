@@ -38,8 +38,8 @@ func TestRun_DisallowsNonAllowlistedSubcommand(t *testing.T) {
 		t.Fatal("expected error")
 	}
 	var ke *git.KindError
-	if !errors.As(err, &ke) || ke.Kind != git.ErrNotAllowed {
-		t.Fatalf("got %v, want ErrNotAllowed", err)
+	if !errors.As(err, &ke) || ke.Kind != git.KindNotAllowed {
+		t.Fatalf("got %v, want KindNotAllowed", err)
 	}
 }
 
@@ -76,8 +76,8 @@ func TestRun_BlocksDestructiveResetHard(t *testing.T) {
 		t.Fatal("expected error")
 	}
 	var ke *git.KindError
-	if !errors.As(err, &ke) || ke.Kind != git.ErrDestructiveBlocked {
-		t.Fatalf("got %v, want ErrDestructiveBlocked", err)
+	if !errors.As(err, &ke) || ke.Kind != git.KindDestructiveBlocked {
+		t.Fatalf("got %v, want KindDestructiveBlocked", err)
 	}
 }
 
@@ -180,8 +180,8 @@ func TestRun_RejectsWorkDirOutsideRepo(t *testing.T) {
 		t.Fatal("expected error")
 	}
 	var ke *git.KindError
-	if !errors.As(err, &ke) || ke.Kind != git.ErrOutsideRepo {
-		t.Fatalf("got %v, want ErrOutsideRepo", err)
+	if !errors.As(err, &ke) || ke.Kind != git.KindOutsideRepo {
+		t.Fatalf("got %v, want KindOutsideRepo", err)
 	}
 }
 
