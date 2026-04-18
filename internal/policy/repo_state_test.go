@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/ipolyzos/git-write-mcp/internal/git"
@@ -167,6 +168,63 @@ func TestValidateRepoState_InvalidActionPreconditions(t *testing.T) {
 	}
 }
 
+func TestValidateRepoState_RequireHEADBranch_Match(t *testing.T) {
+	t.Helper()
+	ctx := context.Background()
+	root := initGitRepo(t)
+	def, err := exec.Command("git", "-C", root, "rev-parse", "--abbrev-ref", "HEAD").CombinedOutput()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cur := strings.TrimSpace(string(def))
+	eng := mustEngine(t, root)
+	ex, err := git.NewExecutor(git.ExecutorOptions{RepoRoot: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	probe := git.NewRepoProbe(ex)
+	in := policy.RepoStateCheckInput{
+		RepoRoot:          root,
+		WorkDir:           root,
+		Action:            "push_branch",
+		RequireHEADBranch: cur,
+	}
+	got := policy.ValidateRepoState(ctx, eng, probe, in)
+	if !got.OK {
+		t.Fatalf("%+v", got)
+	}
+}
+
+func TestValidateRepoState_RequireHEADBranch_Mismatch(t *testing.T) {
+	t.Helper()
+	ctx := context.Background()
+	root := initGitRepo(t)
+	def, err := exec.Command("git", "-C", root, "rev-parse", "--abbrev-ref", "HEAD").CombinedOutput()
+	if err != nil {
+		t.Fatal(err)
+	}
+	prev := strings.TrimSpace(string(def))
+	if out, err := exec.Command("git", "-C", root, "checkout", "-b", "feature/other-branch").CombinedOutput(); err != nil {
+		t.Fatalf("%v\n%s", err, out)
+	}
+	eng := mustEngine(t, root)
+	ex, err := git.NewExecutor(git.ExecutorOptions{RepoRoot: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	probe := git.NewRepoProbe(ex)
+	in := policy.RepoStateCheckInput{
+		RepoRoot:          root,
+		WorkDir:           root,
+		Action:            "push_branch",
+		RequireHEADBranch: prev,
+	}
+	got := policy.ValidateRepoState(ctx, eng, probe, in)
+	if got.OK || got.Code != policy.RepoValidationPrecondition {
+		t.Fatalf("%+v", got)
+	}
+}
+
 func TestValidateRepoState_DeterministicValidationOutput(t *testing.T) {
 	t.Helper()
 	ctx := context.Background()
@@ -230,4 +288,8 @@ func (noopProbe) IsDetachedHEAD(context.Context, string) (bool, error) {
 func (noopProbe) RefExists(context.Context, string, string) (bool, error) { return true, nil }
 func (noopProbe) HasStagedChanges(context.Context, string) (bool, error) {
 	return false, nil
+}
+
+func (noopProbe) CurrentBranchName(context.Context, string) (string, error) {
+	return "", nil
 }

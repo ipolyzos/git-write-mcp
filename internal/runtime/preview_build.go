@@ -67,6 +67,12 @@ func previewTargets(req *MutationRequest) []string {
 			return nil
 		}
 		return []string{s}
+	case "push_branch":
+		s := strings.TrimSpace(req.Target)
+		if s == "" {
+			return nil
+		}
+		return []string{s}
 	default:
 		s := strings.TrimSpace(req.Target)
 		if s == "" {
@@ -85,6 +91,10 @@ func previewSecondaryRefs(req *MutationRequest) []string {
 	case "tag_revision":
 		if strings.TrimSpace(req.TargetRef) != "" {
 			return []string{req.TargetRef}
+		}
+	case "push_branch":
+		if strings.TrimSpace(req.PushRemote) != "" {
+			return []string{req.PushRemote}
 		}
 	}
 	return nil
@@ -131,6 +141,10 @@ func previewEffectSummary(req *MutationRequest) string {
 			return fmt.Sprintf(`Would create annotated tag %q at ref %q.`, tag, req.TargetRef)
 		}
 		return fmt.Sprintf(`Would create annotated tag %q at HEAD.`, tag)
+	case "push_branch":
+		b := strings.TrimSpace(req.Target)
+		r := strings.TrimSpace(req.PushRemote)
+		return fmt.Sprintf(`Would push branch %q to remote %q (no force, no refspec).`, b, r)
 	default:
 		return `Would run git with the planned arguments (dry-run; no repository changes).`
 	}

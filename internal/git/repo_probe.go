@@ -76,3 +76,15 @@ func (p repoProbe) HasStagedChanges(ctx context.Context, workDir string) (bool, 
 	}
 	return false, err
 }
+
+func (p repoProbe) CurrentBranchName(ctx context.Context, workDir string) (string, error) {
+	res, err := p.ex.Run(ctx, workDir, []string{"rev-parse", "--abbrev-ref", "HEAD"})
+	if err != nil {
+		return "", err
+	}
+	name := strings.TrimSpace(string(res.Stdout))
+	if name == "HEAD" {
+		return "", fmt.Errorf("git: detached HEAD")
+	}
+	return name, nil
+}

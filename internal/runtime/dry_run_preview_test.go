@@ -41,6 +41,29 @@ func TestBuildDryRunPreview_CreateBranch(t *testing.T) {
 	}
 }
 
+func TestBuildDryRunPreview_PushBranch(t *testing.T) {
+	t.Helper()
+	root := filepath.Clean("/tmp/repo")
+	req := &runtime.MutationRequest{
+		Action:     "push_branch",
+		Target:     "feature/push",
+		PushRemote: "origin",
+		WorkDir:    root,
+		GitArgs:    []string{"push", "origin", "feature/push"},
+	}
+	got := runtime.BuildDryRunPreview(req)
+	if !reflect.DeepEqual(got.Targets, []string{"feature/push"}) {
+		t.Fatalf("targets = %#v", got.Targets)
+	}
+	if !reflect.DeepEqual(got.SecondaryRefs, []string{"origin"}) {
+		t.Fatalf("secondary_refs = %#v", got.SecondaryRefs)
+	}
+	wantSummary := `Would push branch "feature/push" to remote "origin" (no force, no refspec).`
+	if got.EffectSummary != wantSummary {
+		t.Fatalf("effect_summary = %q, want %q", got.EffectSummary, wantSummary)
+	}
+}
+
 func TestBuildDryRunPreview_CreateBranch_FromRef(t *testing.T) {
 	t.Helper()
 	root := filepath.Clean("/tmp/repo")

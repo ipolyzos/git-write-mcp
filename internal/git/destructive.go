@@ -20,7 +20,7 @@ func isDestructive(argv []string) bool {
 	case "clean":
 		return hasAnyFlag(argv[1:], "-x", "-f", "-fd", "-ffd", "-dff", "-fx", "-df", "-xd")
 	case "push":
-		return hasAnyFlag(argv[1:], "--force", "-f", "--mirror", "--delete") || hasForceEquals(argv[1:])
+		return !pushRemoteBranchOnly(argv)
 	case "pull":
 		return hasAnyFlag(argv[1:], "--force", "-f")
 	case "commit":

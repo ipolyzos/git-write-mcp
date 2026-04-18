@@ -27,6 +27,10 @@ type MutationRequest struct {
 	RejectDetachedHEAD bool
 	// RequireStagedIndex rejects commit mutations when the index has no staged changes.
 	RequireStagedIndex bool
+	// RequireHEADBranch rejects push_branch when the current branch does not match.
+	RequireHEADBranch string
+	// PushRemote is the validated remote name for push_branch previews and argv.
+	PushRemote string
 
 	// DryRunRequested asks for a preview only (no git mutation); combined with [policy.Decision.DryRun].
 	DryRunRequested bool

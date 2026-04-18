@@ -83,6 +83,7 @@ func (p *Pipeline) Execute(ctx context.Context, req *MutationRequest) (Result, e
 			TargetRef:          req.TargetRef,
 			RejectDetachedHEAD: req.RejectDetachedHEAD,
 			RequireStagedIndex: req.RequireStagedIndex,
+			RequireHEADBranch:  req.RequireHEADBranch,
 		})
 		if !rs.OK {
 			meta, aerr := p.appendAudit(ctx, req, ts, audit.ModeBlocked, audit.OutcomeFailure, rs.Detail)

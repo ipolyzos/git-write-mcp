@@ -10,6 +10,7 @@ import (
 
 	_ "github.com/ipolyzos/git-write-mcp/plugins/commit_changes"
 	_ "github.com/ipolyzos/git-write-mcp/plugins/create_branch"
+	_ "github.com/ipolyzos/git-write-mcp/plugins/push_branch"
 	_ "github.com/ipolyzos/git-write-mcp/plugins/stage_files"
 	_ "github.com/ipolyzos/git-write-mcp/plugins/tag_revision"
 	_ "github.com/ipolyzos/git-write-mcp/plugins/unstage_files"

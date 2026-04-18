@@ -9,6 +9,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -20,6 +21,8 @@ type RepoGitProbe interface {
 	IsDetachedHEAD(ctx context.Context, workDir string) (detached bool, err error)
 	RefExists(ctx context.Context, workDir, ref string) (exists bool, err error)
 	HasStagedChanges(ctx context.Context, workDir string) (has bool, err error)
+	// CurrentBranchName returns the short branch name for HEAD or an error if detached.
+	CurrentBranchName(ctx context.Context, workDir string) (string, error)
 }
 
 // RepoValidationCode categorizes repo state failures (empty when OK).
@@ -50,6 +53,8 @@ type RepoStateCheckInput struct {
 	TargetRef          string
 	RejectDetachedHEAD bool
 	RequireStagedIndex bool
+	// RequireHEADBranch, if non-empty, requires the current branch to match exactly.
+	RequireHEADBranch string
 }
 
 // RepoStateResult is deterministic structured output from [ValidateRepoState].
@@ -158,6 +163,27 @@ func ValidateRepoState(ctx context.Context, eng *Engine, probe RepoGitProbe, in 
 				OK:     false,
 				Code:   RepoValidationPrecondition,
 				Detail: "policy: nothing staged for commit",
+			}
+		}
+	}
+
+	if want := strings.TrimSpace(in.RequireHEADBranch); want != "" {
+		if probe == nil {
+			return RepoStateResult{
+				OK:     false,
+				Code:   RepoValidationProbe,
+				Detail: "policy: nil probe cannot verify current branch",
+			}
+		}
+		got, err := probe.CurrentBranchName(ctx, in.WorkDir)
+		if err != nil {
+			return RepoStateResult{OK: false, Code: RepoValidationProbe, Detail: err.Error()}
+		}
+		if got != want {
+			return RepoStateResult{
+				OK:     false,
+				Code:   RepoValidationPrecondition,
+				Detail: "policy: current branch " + strconv.Quote(got) + " does not match requested branch " + strconv.Quote(want),
 			}
 		}
 	}
