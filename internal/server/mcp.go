@@ -29,7 +29,11 @@ func NewMCPServer(version string, reg *plugin.Registry, cfg ServeConfig) *mcp.Se
 		Version: version,
 	}, nil)
 
-	implemented := map[string]struct{}{}
+	registerGetCapabilitiesTool(s)
+
+	implemented := map[string]struct{}{
+		plugin.ToolGetCapabilities: {},
+	}
 	if cfg.Pipeline != nil && cfg.RepoRoot != "" {
 		implemented["commit_changes"] = struct{}{}
 		implemented["create_branch"] = struct{}{}
