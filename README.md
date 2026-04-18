@@ -86,11 +86,11 @@ For code changes:
 |------|------|
 | `cmd/git-write-mcp` | Process entrypoint |
 | `internal/server` | MCP server wiring (bootstrap registers plugins) |
-| `internal/runtime` | Process/runtime configuration (stub) |
+| `internal/runtime` | Shared mutation `Pipeline`, `MutationRequest` / `Result`, dry-run previews |
 | `internal/plugin` | Plugin registry and interface |
 | `internal/git` | Allowlisted `Executor` (direct `exec`, no shell) |
 | `internal/policy` | Ref/branch/tag validation, repo path containment, Approver extension |
-| `internal/audit` | Audit logger (stub) |
+| `internal/audit` | Structured audit `Record`, `Sink`, `Logger` |
 | `plugins/*` | Thin tool plugins (names only until tools are implemented) |
 
 ---
