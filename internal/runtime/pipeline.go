@@ -80,39 +80,23 @@ func (p *Pipeline) Execute(ctx context.Context, req *MutationRequest) (Result, e
 		}
 	}
 
-	if p.Approver == nil {
-		rec.Mode = audit.ModeBlocked
-		rec.Outcome = audit.OutcomeFailure
-		rec.Detail = policy.ErrApprovalRequired.Error()
-		p.emit(ctx, rec)
-		return Result{}, policy.ErrApprovalRequired
-	}
-
-	inv := policy.InvocationRequest{
-		WorkDir:         req.WorkDir,
-		Args:            req.GitArgs,
+	dec := policy.EvaluateApproval(ctx, p.Approver, policy.ApprovalCheckInput{
 		Actor:           req.Actor,
 		Action:          req.Action,
 		Target:          req.Target,
+		WorkDir:         req.WorkDir,
+		GitArgs:         req.GitArgs,
 		DryRunRequested: req.DryRunRequested,
-	}
-	d, err := p.Approver.Approve(ctx, inv)
-	if err != nil {
+	})
+	if !dec.Allowed {
 		rec.Mode = audit.ModeBlocked
 		rec.Outcome = audit.OutcomeFailure
-		rec.Detail = err.Error()
+		rec.Detail = dec.DenyDetail
 		p.emit(ctx, rec)
-		return Result{}, err
-	}
-	if !d.Approved {
-		rec.Mode = audit.ModeBlocked
-		rec.Outcome = audit.OutcomeFailure
-		rec.Detail = policy.ErrApprovalRequired.Error()
-		p.emit(ctx, rec)
-		return Result{}, policy.ErrApprovalRequired
+		return Result{}, policy.ErrApprovalFromDecision(dec)
 	}
 
-	skipExec := d.DryRun || req.DryRunRequested
+	skipExec := dec.DryRun || req.DryRunRequested
 	preview := &DryRunPreview{
 		GitArgv: append([]string(nil), req.GitArgs...),
 		WorkDir: req.WorkDir,

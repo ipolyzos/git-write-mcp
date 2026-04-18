@@ -39,10 +39,10 @@ func TestPipeline_DryRunDoesNotInvokeGitBinary(t *testing.T) {
 	ctx := context.Background()
 	req := &runtime.MutationRequest{
 		Actor:           "test",
-		Action:          "noop",
-		Target:          "refs/heads/x",
+		Action:          "create_branch",
+		Target:          "feature/dry",
 		WorkDir:         root,
-		GitArgs:         []string{"rev-parse", "--is-inside-work-tree"},
+		GitArgs:         []string{"branch", "feature/dry"},
 		DryRunRequested: true,
 	}
 	res, err := p.Execute(ctx, req)
@@ -124,10 +124,10 @@ func TestPipeline_ApproverNilRejected(t *testing.T) {
 	ctx := context.Background()
 	req := &runtime.MutationRequest{
 		Actor:   "a",
-		Action:  "add",
-		Target:  "f",
+		Action:  "create_branch",
+		Target:  "feature/nil-appr",
 		WorkDir: root,
-		GitArgs: []string{"add", "x"},
+		GitArgs: []string{"branch", "feature/nil-appr"},
 	}
 	_, err = p.Execute(ctx, req)
 	if !errors.Is(err, policy.ErrApprovalRequired) {
@@ -172,10 +172,10 @@ func TestPipeline_RequestValidateFailsBeforeGit(t *testing.T) {
 	ctx := context.Background()
 	req := &runtime.MutationRequest{
 		Actor:   "a",
-		Action:  "x",
-		Target:  "y",
+		Action:  "create_branch",
+		Target:  "feature/boom",
 		WorkDir: root,
-		GitArgs: []string{"rev-parse", "--is-inside-work-tree"},
+		GitArgs: []string{"branch", "feature/boom"},
 		Validate: func() error {
 			return errors.New("boom")
 		},

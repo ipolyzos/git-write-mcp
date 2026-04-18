@@ -7,6 +7,7 @@ package policy_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"reflect"
 	"testing"
 
@@ -95,6 +96,25 @@ func TestEvaluateApproval_UnsupportedActionType(t *testing.T) {
 	}
 }
 
+func TestEvaluateApproval_ApproverError(t *testing.T) {
+	t.Helper()
+	ctx := context.Background()
+	dec := policy.EvaluateApproval(ctx, errApprover{}, validInput())
+	if dec.Allowed {
+		t.Fatal("expected error path")
+	}
+	if dec.DenyReason != policy.ApprovalDenyApproverError || dec.DenyDetail != "boom" {
+		t.Fatalf("got %+v", dec)
+	}
+	err := policy.ErrApprovalFromDecision(dec)
+	if errors.Is(err, policy.ErrApprovalRequired) {
+		t.Fatal("approver errors must not wrap ErrApprovalRequired")
+	}
+	if err.Error() != "boom" {
+		t.Fatalf("got %v", err)
+	}
+}
+
 func TestEvaluateApproval_DeterministicOutputStructure(t *testing.T) {
 	t.Helper()
 	ctx := context.Background()
@@ -115,4 +135,10 @@ func TestEvaluateApproval_DeterministicOutputStructure(t *testing.T) {
 	if string(j1) != string(j2) {
 		t.Fatalf("json differs: %s vs %s", j1, j2)
 	}
+}
+
+type errApprover struct{}
+
+func (errApprover) Approve(context.Context, policy.InvocationRequest) (policy.Decision, error) {
+	return policy.Decision{}, errors.New("boom")
 }
