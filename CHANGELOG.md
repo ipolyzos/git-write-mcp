@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Integration tests in `internal/server` (`mutation_tools_integration_test.go`): all four mutation tools run against a shared pipeline with audit capture; dry-run and approval-denied audit modes; repo-boundary rejection for `stage_files`.
 - MCP tool **`tag_revision`**: annotated tags via `git tag -a -m` only (no force/delete argv), validates tag name, optional target ref, and annotation message; approval, dry-run, audit via `plugins/tag_revision` and `runtime.Pipeline`.
 - MCP tool **`commit_changes`**: validates commit messages (`policy.ValidateCommitMessage`), commits staged changes with allowlisted `git commit -m` only (no amend), approval, dry-run, audit via `plugins/commit_changes` and `runtime.Pipeline`.
 - MCP tool **`stage_files`**: validates and resolves paths under the repo root (traversal-safe), stages via allowlisted `git add`, requires approval, supports dry-run and audit via `plugins/stage_files` and `runtime.Pipeline`.
@@ -23,3 +24,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Makefile targets for build, test, vet, format check, lint, and bundled `ci`.
 - Bootstrap layout: `internal/server`, `internal/runtime`, `internal/git`, `internal/policy`, `internal/audit`, `internal/plugin`, and plugins under `plugins/` (`create_branch`, `stage_files`, `commit_changes`, `tag_revision`).
 - Minimal stdio MCP server using `github.com/modelcontextprotocol/go-sdk`: `NewMCPServer` / `RunStdio` register tools; mutations are active when `GIT_WRITE_MCP_REPO_ROOT` resolves and `ServeConfig` supplies the pipeline (otherwise unmanaged tools reply `not implemented`).
+
+### Changed
+
+- **Breaking (internal API):** `runtime.Pipeline.Execute` now takes `*runtime.MutationRequest` so validation can populate `GitArgs` / `Target` before approval and git (used by `stage_files`).
+- GitHub Actions `go test` runs with `-race` (aligned with `make test` / `make ci`).
+
+### Fixed
+
+- `stage_files`: path validation runs inside the mutation pipeline so invalid or out-of-repo paths emit a blocked audit record (previously returned before `Pipeline.Execute`).
