@@ -14,6 +14,7 @@ GitHub surfaces these files in the repository **About** / community health UI wh
 
 | Resource | File |
 |----------|------|
+| **Contributing** | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
 | **License** | [`LICENSE`](LICENSE) (Apache-2.0 full text) |
 | **Code of Conduct** | [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) (Contributor Covenant 2.1) |
 | **Security** | [`SECURITY.md`](SECURITY.md) — **report vulnerabilities privately** (do not open public issues for unfixed flaws) |

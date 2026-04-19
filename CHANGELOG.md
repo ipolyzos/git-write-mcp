@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`CONTRIBUTING.md`**: branch/PR workflow, **`make ci`** parity, conduct and security pointers; linked from **`README.md`** and **`docs/README.md`** for GitHub community UI.
+
 ## [0.2.0] - 2026-04-19
 
 Second release: GitHub-aware MCP tools (PR create/merge/status, releases from main), documentation hub under **`docs/`**, community **`SECURITY.md`** / **`CODE_OF_CONDUCT.md`**, contracts tests for capability parity, and expanded mutation pipeline (repo-state checks, centralized approval, audit append).
