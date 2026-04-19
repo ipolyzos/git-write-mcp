@@ -30,6 +30,16 @@ present after resolution.
 
 Current CI (`.github/workflows/ci.yml`) stays **`permissions: contents: read`** — sufficient for build/test and aligned with not granting write API until automation jobs exist.
 
+## End-to-end branch and release flow (with this MCP)
+
+Typical automation aligned with the repository **branch model** (`README.md`):
+
+1. **Integration on `develop`:** feature work merges via **`create_pull_request`** (base usually **`develop`**) and **`merge_pull_request`** after **`get_pull_request_status`** shows green checks and policy allows the merge.
+2. **Promotion to `main`:** humans or automation open a **release PR** **`develop` → `main`** (outside this server’s defaults—allowed bases are configured explicitly).
+3. **Cut a GitHub release:** after checkout **on `main`** (or the branch named by **`GIT_WRITE_MCP_RELEASE_SOURCE_BRANCH`**), run **`create_release_from_main`** with **`tag_name`**, **`release_name`**, and notes. The tool refuses if the local branch is not the configured release branch—this enforces **main-only** (or single-source) release provenance together with **`POST .../releases`** **`target_commitish`**.
+
+Never point **`create_release_from_main`** at arbitrary refs from a non-release checkout; **merge to `main` first**, then release from **`main`**.
+
 ## Testing
 
 Inject `HTTPDoer` (fakes recording requests) into `NewClient`; no network or real tokens
