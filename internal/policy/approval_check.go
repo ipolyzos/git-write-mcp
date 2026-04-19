@@ -7,6 +7,7 @@ package policy
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 )
 
@@ -46,6 +47,17 @@ type ApprovalDecision struct {
 	DryRun     bool               `json:"dry_run"`
 	DenyReason ApprovalDenyReason `json:"deny_reason,omitempty"`
 	DenyDetail string             `json:"deny_detail,omitempty"`
+}
+
+// KnownMutationActions returns sorted action names accepted by [EvaluateApproval].
+// Keep in sync with get_capabilities write_tools (see internal/contracts tests).
+func KnownMutationActions() []string {
+	out := make([]string, 0, len(supportedMutationActions))
+	for k := range supportedMutationActions {
+		out = append(out, k)
+	}
+	slices.Sort(out)
+	return out
 }
 
 // Known mutation actions accepted by this server build (extend deliberately).

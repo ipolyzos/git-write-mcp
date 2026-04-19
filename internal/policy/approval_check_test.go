@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
+	"slices"
 	"testing"
 
 	"github.com/ipolyzos/git-write-mcp/internal/policy"
@@ -22,6 +23,22 @@ func validInput() policy.ApprovalCheckInput {
 		WorkDir:         "/repo",
 		GitArgs:         []string{"branch", "feature/x"},
 		DryRunRequested: false,
+	}
+}
+
+func TestKnownMutationActions_SortedUnique(t *testing.T) {
+	t.Helper()
+	got := policy.KnownMutationActions()
+	if len(got) == 0 {
+		t.Fatal("expected non-empty action list")
+	}
+	if !slices.IsSorted(got) {
+		t.Fatalf("not sorted: %v", got)
+	}
+	for i := 1; i < len(got); i++ {
+		if got[i] == got[i-1] {
+			t.Fatalf("duplicate %q", got[i])
+		}
 	}
 }
 
