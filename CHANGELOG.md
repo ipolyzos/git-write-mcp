@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-04-19
+
+Second release: GitHub-aware MCP tools (PR create/merge/status, releases from main), documentation hub under **`docs/`**, community **`SECURITY.md`** / **`CODE_OF_CONDUCT.md`**, contracts tests for capability parity, and expanded mutation pipeline (repo-state checks, centralized approval, audit append).
+
 ### Added
 
 - **Community files:** root **`SECURITY.md`** (private vulnerability reporting via GitHub Security Advisories and **git@ipolyzos.com**); **`CODE_OF_CONDUCT.md`** (Contributor Covenant 2.1). **`LICENSE`** unchanged (Apache-2.0). Root **`README.md`** and **`docs/README.md`** link these so GitHub’s **About** sidebar shows **License**, **Security**, and **Code of conduct** alongside **README**.
@@ -64,5 +68,6 @@ policy-backed validation, approvals, dry-run, and structured auditing.
 
 - `stage_files`: path validation runs inside the mutation pipeline so invalid or out-of-repo paths emit a blocked audit record (previously returned before `Pipeline.Execute`).
 
-[Unreleased]: https://github.com/ipolyzos/git-write-mcp/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/ipolyzos/git-write-mcp/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/ipolyzos/git-write-mcp/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/ipolyzos/git-write-mcp/releases/tag/v0.1.0
