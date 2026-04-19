@@ -32,7 +32,7 @@ Current CI (`.github/workflows/ci.yml`) stays **`permissions: contents: read`** 
 
 ## End-to-end branch and release flow (with this MCP)
 
-Typical automation aligned with the repository **branch model** (`README.md`):
+Typical automation aligned with the repository **branch model** (see [Workflow](workflow.md)):
 
 1. **Integration on `develop`:** feature work merges via **`create_pull_request`** (base usually **`develop`**) and **`merge_pull_request`** after **`get_pull_request_status`** shows green checks and policy allows the merge.
 2. **Promotion to `main`:** humans or automation open a **release PR** **`develop` → `main`** (outside this server’s defaults—allowed bases are configured explicitly).
