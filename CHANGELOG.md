@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-04-19
+
 ### Added
 
 - **`CONTRIBUTING.md`**: branch/PR workflow, **`make ci`** parity, conduct and security pointers; linked from **`README.md`** and **`docs/README.md`** for GitHub community UI.
@@ -72,6 +74,7 @@ policy-backed validation, approvals, dry-run, and structured auditing.
 
 - `stage_files`: path validation runs inside the mutation pipeline so invalid or out-of-repo paths emit a blocked audit record (previously returned before `Pipeline.Execute`).
 
-[Unreleased]: https://github.com/ipolyzos/git-write-mcp/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/ipolyzos/git-write-mcp/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/ipolyzos/git-write-mcp/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/ipolyzos/git-write-mcp/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/ipolyzos/git-write-mcp/releases/tag/v0.1.0
