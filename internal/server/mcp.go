@@ -14,6 +14,7 @@ import (
 	"github.com/ipolyzos/git-write-mcp/plugins/commit_changes"
 	"github.com/ipolyzos/git-write-mcp/plugins/create_branch"
 	"github.com/ipolyzos/git-write-mcp/plugins/create_pull_request"
+	"github.com/ipolyzos/git-write-mcp/plugins/create_release_from_main"
 	"github.com/ipolyzos/git-write-mcp/plugins/get_pull_request_status"
 	"github.com/ipolyzos/git-write-mcp/plugins/merge_pull_request"
 	"github.com/ipolyzos/git-write-mcp/plugins/push_branch"
@@ -59,6 +60,8 @@ func NewMCPServer(version string, reg *plugin.Registry, cfg ServeConfig) *mcp.Se
 			get_pull_request_status.RegisterMCPTool(s, cfg.GitHub, cfg.GitHubOwner, cfg.GitHubRepo)
 			implemented["merge_pull_request"] = struct{}{}
 			merge_pull_request.RegisterMCPTool(s, cfg.Pipeline, cfg.RepoRoot, cfg.Actor, cfg.GitHub, cfg.GitHubOwner, cfg.GitHubRepo)
+			implemented["create_release_from_main"] = struct{}{}
+			create_release_from_main.RegisterMCPTool(s, cfg.Pipeline, cfg.RepoRoot, cfg.Actor, cfg.GitHub, cfg.GitHubOwner, cfg.GitHubRepo)
 		}
 	}
 

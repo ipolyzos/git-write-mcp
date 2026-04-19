@@ -421,6 +421,36 @@ func TestClient_MergePullRequest_Success(t *testing.T) {
 	}
 }
 
+func TestClient_CreateRelease_Success(t *testing.T) {
+	t.Helper()
+	ctx := context.Background()
+	cfg := gh.Config{
+		Repository: gh.Repository{Owner: "o", Name: "r"},
+		Token:      "t",
+	}
+	cl, err := gh.NewClient(cfg, fakeHTTP(func(req *http.Request) (*http.Response, error) {
+		if req.Method != http.MethodPost || req.URL.Path != "/repos/o/r/releases" {
+			t.Fatalf("unexpected request %s %s", req.Method, req.URL.Path)
+		}
+		return &http.Response{
+			StatusCode: http.StatusCreated,
+			Body:       io.NopCloser(strings.NewReader(`{"id":7,"html_url":"https://ex/7","tag_name":"v1","name":"R"}`)),
+		}, nil
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := cl.CreateRelease(ctx, gh.CreateReleaseInput{
+		TagName: "v1", Name: "R", Body: "b", TargetCommitish: "main",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.ID != 7 || res.HTMLURL != "https://ex/7" {
+		t.Fatalf("%+v", res)
+	}
+}
+
 func TestClient_GetPullRequestStatus_RepoMismatch(t *testing.T) {
 	t.Helper()
 	ctx := context.Background()

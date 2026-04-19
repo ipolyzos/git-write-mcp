@@ -73,8 +73,18 @@ type CreatePullRequestInput struct {
 	Draft bool
 }
 
-// CreateReleaseInput is a placeholder for release creation.
-type CreateReleaseInput struct{}
+// CreateReleaseInput is the JSON body for POST /repos/{owner}/{repo}/releases.
+type CreateReleaseInput struct {
+	TagName         string
+	Name            string
+	Body            string
+	TargetCommitish string
+}
 
-// Release is a placeholder for release API responses.
-type Release struct{}
+// Release is a subset of the GitHub releases API response for MCP output.
+type Release struct {
+	ID      int    `json:"id"`
+	HTMLURL string `json:"html_url"`
+	TagName string `json:"tag_name"`
+	Name    string `json:"name"`
+}
