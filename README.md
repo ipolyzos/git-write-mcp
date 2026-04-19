@@ -19,7 +19,7 @@ Provide MCP tools that can **mutate** a Git repository (branch, index, commits, 
 
 | In scope (this MCP) | Out of scope (use a read Git MCP or the host) |
 |---------------------|-----------------------------------------------|
-| `create_branch`, `create_pull_request`, **`merge_pull_request`**, `push_branch`, `stage_files`, `unstage_files`, `commit_changes`, `tag_revision`; read-only **`get_pull_request_status`** (GitHub REST, requires token + repo env) | `git_status`, `git_diff`, `git_log`, `git_show`, `git_blame`, `git_branch_list` |
+| `create_branch`, `create_pull_request`, **`merge_pull_request`**, **`create_release_from_main`**, `push_branch`, `stage_files`, `unstage_files`, `commit_changes`, `tag_revision`; read-only **`get_pull_request_status`** (GitHub REST, requires token + repo env) | `git_status`, `git_diff`, `git_log`, `git_show`, `git_blame`, `git_branch_list` |
 | Allowlisted `git` invocations; no freestyle shell | Ad-hoc shell, pipe chains, or user-defined commands |
 | Policy + audit around each mutation | History rewriting / destructive defaults (must stay off by default) |
 
@@ -51,7 +51,7 @@ Repository file history and blame stay in a dedicated read Git MCP; **`get_pull_
 1. On **`develop`**, update **`CHANGELOG.md`** under `[Unreleased]` / version section as appropriate.
 2. Ensure tests, lint, and formatting pass locally and in GitHub Actions.
 3. Open a PR **`develop` → `main`** (release PR).
-4. After merge to **`main`**, tag and publish releases **from `main`** only.
+4. After merge to **`main`**, tag and publish releases **from `main`** only (MCP tool **`create_release_from_main`** enforces a local checkout on the configured release branch, default **`main`**; see Tool section).
 
 ---
 
@@ -94,7 +94,7 @@ CI and **`make test`** / **`make ci`** run **`go test -race ./...`** (data race 
 | `internal/policy` | Ref/branch/tag/commit-message validation, repo path containment, Approver extension |
 | `internal/audit` | Structured audit `Record`, `Sink`, `Logger` |
 | `internal/integration/github` | GitHub REST foundation (`Config`, `Client`, `Integration`); see `docs/github-integration.md` |
-| `plugins/*` | Tool plugins (`create_branch`, `create_pull_request`, `get_pull_request_status`, `merge_pull_request`, `push_branch`, `stage_files`, `unstage_files`, `commit_changes`, `tag_revision`) |
+| `plugins/*` | Tool plugins (`create_branch`, `create_pull_request`, `create_release_from_main`, `get_pull_request_status`, `merge_pull_request`, `push_branch`, `stage_files`, `unstage_files`, `commit_changes`, `tag_revision`) |
 
 ---
 
@@ -115,7 +115,8 @@ The process must know which repository to operate on and how approvals are decid
 | `GIT_WRITE_MCP_MERGE_MIN_APPROVALS` | Minimum count of **`APPROVED`** reviews from the PR reviews API (default **`1`**). |
 | `GIT_WRITE_MCP_MERGE_BLOCK_ON_CHANGES_REQUESTED` | Default **`1`**: merge blocked if any review has **`CHANGES_REQUESTED`**. Set **`0`** to ignore. |
 | `GIT_WRITE_MCP_MERGE_REQUIRE_CLEAN_MERGEABILITY` | Default **`1`**: GitHub **`mergeable_state`** must be **`clean`**. |
-| `GITHUB_TOKEN` | Bearer token for GitHub REST (required for **`create_pull_request`**, **`get_pull_request_status`**, and **`merge_pull_request`** when the GitHub client initializes at server start). |
+| `GIT_WRITE_MCP_RELEASE_SOURCE_BRANCH` | Branch name your **local checkout** must match before **`create_release_from_main`** runs (default **`main`**). GitHub **`target_commitish`** for the release uses this value. |
+| `GITHUB_TOKEN` | Bearer token for GitHub REST (required for **`create_pull_request`**, **`get_pull_request_status`**, **`merge_pull_request`**, and **`create_release_from_main`** when the GitHub client initializes at server start). |
 | `GITHUB_REPOSITORY` | Repository as **`owner/name`** (e.g. **`octocat/Hello-World`**). Alternative: set **`GITHUB_REPOSITORY_OWNER`** and **`GITHUB_REPOSITORY_NAME`**. |
 
 Example:
@@ -282,6 +283,66 @@ Example success (execute):
   "merge_message": "Pull Request successfully merged",
   "dry_run_requested": false,
   "mode": "execute"
+}
+```
+
+---
+
+## Tool: `create_release_from_main`
+
+Creates a **GitHub release** via **`POST /repos/{owner}/{repo}/releases`** with **`target_commitish`** set to the configured release branch (default **`main`**). The tool **rejects** execution unless the **current local branch** matches **`GIT_WRITE_MCP_RELEASE_SOURCE_BRANCH`** (provenance gate—checkout **`main`** before cutting the release from your workstation).
+
+Requires **`runtime.Pipeline`** (approval, dry-run preview, audit) and a working GitHub client at server start (**`GITHUB_TOKEN`** + repository env). At least one of **`release_notes`** or **`changelog_section`** must be non-empty; if both are set, **`release_notes`** wins for the release body.
+
+**Inputs (JSON):**
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `tag_name` | yes | Git tag for the release (must pass tag name policy). |
+| `release_name` | yes | GitHub release title / name. |
+| `release_notes` | no* | Body text for the release. |
+| `changelog_section` | no* | Alternative body source (used when `release_notes` is empty). |
+| `dry_run` | no | If `true`, validation + preview only (no GitHub API call). |
+
+\* One of **`release_notes`** or **`changelog_section`** is required.
+
+**Structured output (`ToolResult`):** `ok`, `error`, `tag_name`, `release_name`, `release_id`, `html_url`, `release_source_ref`, `dry_run_requested`, `mode`, `dry_run`, `dry_run_preview`, `git_stdout`, `git_stderr`.
+
+Example success (execute):
+
+```json
+{
+  "ok": true,
+  "tag_name": "v1.2.0",
+  "release_name": "v1.2.0",
+  "release_id": 12345678,
+  "html_url": "https://github.com/org/repo/releases/tag/v1.2.0",
+  "release_source_ref": "main",
+  "dry_run_requested": false,
+  "mode": "execute"
+}
+```
+
+Example dry-run:
+
+```json
+{
+  "ok": true,
+  "tag_name": "v1.2.0",
+  "release_name": "v1.2.0",
+  "release_source_ref": "main",
+  "dry_run_requested": true,
+  "mode": "dry-run",
+  "dry_run": true,
+  "dry_run_preview": {
+    "action": "create_release_from_main",
+    "targets": ["v1.2.0"],
+    "secondary_refs": ["main"],
+    "git_argv": ["create_release_from_main", "v1.2.0", "v1.2.0"],
+    "git_commands": ["GitHub API POST /repos/org/repo/releases tag=\"v1.2.0\" name=\"v1.2.0\" target_commitish=main"],
+    "work_dir": "/abs/path/to/repo",
+    "effect_summary": "GitHub API POST /repos/org/repo/releases tag=\"v1.2.0\" name=\"v1.2.0\" target_commitish=main"
+  }
 }
 ```
 

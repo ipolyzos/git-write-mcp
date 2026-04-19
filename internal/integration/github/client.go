@@ -262,9 +262,47 @@ func (c *Client) MergePullRequest(ctx context.Context, owner, repo string, numbe
 	return &out, nil
 }
 
-// CreateRelease implements [Integration] (placeholder).
+// CreateRelease creates a GitHub release via POST /repos/{owner}/{repo}/releases.
 func (c *Client) CreateRelease(ctx context.Context, in CreateReleaseInput) (*Release, error) {
-	_ = ctx
-	_ = in
-	return nil, ErrNotImplemented
+	if c == nil {
+		return nil, fmt.Errorf("github: nil client")
+	}
+	tag := strings.TrimSpace(in.TagName)
+	name := strings.TrimSpace(in.Name)
+	if tag == "" || name == "" {
+		return nil, fmt.Errorf("github: tag_name and name are required")
+	}
+	target := strings.TrimSpace(in.TargetCommitish)
+	if target == "" {
+		return nil, fmt.Errorf("github: target_commitish is required")
+	}
+	o := strings.TrimSpace(c.cfg.Repository.Owner)
+	n := strings.TrimSpace(c.cfg.Repository.Name)
+	path := "/repos/" + url.PathEscape(o) + "/" + url.PathEscape(n) + "/releases"
+	payload := map[string]string{
+		"tag_name":         tag,
+		"name":             name,
+		"body":             strings.TrimSpace(in.Body),
+		"target_commitish": target,
+	}
+	b, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+	res, err := c.doAuthorizedJSON(ctx, http.MethodPost, path, b)
+	if err != nil {
+		return nil, err
+	}
+	body, err := readHTTPBody(res)
+	if err != nil {
+		return nil, err
+	}
+	if res.StatusCode < 200 || res.StatusCode >= 300 {
+		return nil, fmt.Errorf("github: create release: HTTP %d: %s", res.StatusCode, strings.TrimSpace(string(body)))
+	}
+	out, err := DecodeReleaseResponse(body)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
 }

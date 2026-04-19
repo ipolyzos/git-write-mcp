@@ -84,6 +84,12 @@ func previewTargets(req *MutationRequest) []string {
 			return []string{strconv.Itoa(req.PRMergeNumber)}
 		}
 		return nil
+	case "create_release_from_main":
+		s := strings.TrimSpace(req.ReleaseTagName)
+		if s == "" {
+			return nil
+		}
+		return []string{s}
 	default:
 		s := strings.TrimSpace(req.Target)
 		if s == "" {
@@ -113,6 +119,10 @@ func previewSecondaryRefs(req *MutationRequest) []string {
 		}
 	case "merge_pull_request":
 		if t := strings.TrimSpace(req.PRTargetBranch); t != "" {
+			return []string{t}
+		}
+	case "create_release_from_main":
+		if t := strings.TrimSpace(req.ReleaseTargetRef); t != "" {
 			return []string{t}
 		}
 	}
@@ -189,6 +199,9 @@ func plannedPreviewCommandLine(req *MutationRequest, wd string, argv []string) s
 	case "merge_pull_request":
 		return fmt.Sprintf("GitHub API PUT /repos/%s/%s/pulls/%d/merge merge_method=%s",
 			o, r, req.PRMergeNumber, strings.TrimSpace(req.PRMergeMethod))
+	case "create_release_from_main":
+		return fmt.Sprintf("GitHub API POST /repos/%s/%s/releases tag=%q name=%q target_commitish=%s",
+			o, r, strings.TrimSpace(req.ReleaseTagName), strings.TrimSpace(req.ReleaseGitHubTitle), strings.TrimSpace(req.ReleaseTargetRef))
 	default:
 		return plannedGitCommandLine(wd, argv)
 	}

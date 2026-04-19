@@ -46,8 +46,12 @@ type MutationRequest struct {
 	// PRMergeNumber, PRMergeMethod support merge_pull_request previews and GitHub API.
 	PRMergeNumber int
 	PRMergeMethod string
-	GitHubOwner   string
-	GitHubRepo    string
+	// ReleaseTagName, ReleaseGitHubTitle, ReleaseTargetRef support create_release_from_main previews.
+	ReleaseTagName     string
+	ReleaseGitHubTitle string
+	ReleaseTargetRef   string
+	GitHubOwner        string
+	GitHubRepo         string
 
 	// DryRunRequested asks for a preview only (no git mutation); combined with [policy.Decision.DryRun].
 	DryRunRequested bool

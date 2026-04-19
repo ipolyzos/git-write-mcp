@@ -245,3 +245,7 @@ func (f *fakeMCP) MergePullRequest(_ context.Context, _, _ string, _ int, in git
 	}
 	return &github.MergePullRequestResult{Merged: true}, nil
 }
+
+func (f *fakeMCP) CreateRelease(context.Context, github.CreateReleaseInput) (*github.Release, error) {
+	return nil, github.ErrNotImplemented
+}

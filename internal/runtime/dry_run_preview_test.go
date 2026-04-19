@@ -236,6 +236,31 @@ func TestBuildDryRunPreview_MergePullRequest(t *testing.T) {
 	}
 }
 
+func TestBuildDryRunPreview_CreateReleaseFromMain(t *testing.T) {
+	t.Helper()
+	root := filepath.Join(t.TempDir(), "repo")
+	req := &runtime.MutationRequest{
+		Action:             "create_release_from_main",
+		WorkDir:            root,
+		GitArgs:            []string{"create_release_from_main", "v1.0.0", "Release title"},
+		ReleaseTagName:     "v1.0.0",
+		ReleaseGitHubTitle: "Release title",
+		ReleaseTargetRef:   "main",
+		GitHubOwner:        "o",
+		GitHubRepo:         "r",
+	}
+	got := runtime.BuildDryRunPreview(req)
+	if got.Action != "create_release_from_main" {
+		t.Fatalf("action = %q", got.Action)
+	}
+	if len(got.GitCommands) != 1 || !strings.Contains(got.GitCommands[0], "GitHub API POST /repos/o/r/releases") {
+		t.Fatalf("GitCommands = %#v", got.GitCommands)
+	}
+	if !reflect.DeepEqual(got.Targets, []string{"v1.0.0"}) || !reflect.DeepEqual(got.SecondaryRefs, []string{"main"}) {
+		t.Fatalf("targets=%v secondary=%v", got.Targets, got.SecondaryRefs)
+	}
+}
+
 func TestDryRunPreview_JSONDeterministic(t *testing.T) {
 	t.Helper()
 	req := &runtime.MutationRequest{
