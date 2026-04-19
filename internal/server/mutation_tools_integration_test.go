@@ -22,6 +22,7 @@ import (
 	"github.com/ipolyzos/git-write-mcp/plugins/create_branch"
 	"github.com/ipolyzos/git-write-mcp/plugins/stage_files"
 	"github.com/ipolyzos/git-write-mcp/plugins/tag_revision"
+	"github.com/ipolyzos/git-write-mcp/plugins/unstage_files"
 )
 
 func TestMutationTools_AllFourEmitExecuteAuditRecords(t *testing.T) {
@@ -156,6 +157,49 @@ func TestMutationTools_ApprovalDeniedEmitsBlockedAudit(t *testing.T) {
 	}
 }
 
+func TestMutationTools_UnstageFilesPathOutsideRepoIsBlocked(t *testing.T) {
+	t.Helper()
+	ctx := context.Background()
+	root := gitInitEmptyCommit(t)
+
+	outside := filepath.Join(filepath.Dir(root), "outside-unstage.txt")
+	if err := os.WriteFile(outside, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Remove(outside) })
+
+	var mu sync.Mutex
+	var recs []audit.Record
+	sink := audit.SinkFunc(func(_ context.Context, r audit.Record) error {
+		mu.Lock()
+		defer mu.Unlock()
+		recs = append(recs, r)
+		return nil
+	})
+
+	pipe := testPipeline(t, root, policy.AlwaysApprove{}, sink)
+	h := unstage_files.Handler{Pipeline: pipe, Actor: "boundary"}
+	_, err := h.Execute(ctx, root, unstage_files.Params{Paths: []string{"../" + filepath.Base(outside)}})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(recs) != 1 {
+		t.Fatalf("want 1 audit record, got %d %+v", len(recs), recs)
+	}
+	if recs[0].Mode != audit.ModeBlocked {
+		t.Fatalf("mode = %q", recs[0].Mode)
+	}
+	if recs[0].Outcome != audit.OutcomeFailure {
+		t.Fatalf("outcome = %q", recs[0].Outcome)
+	}
+	if !strings.Contains(recs[0].Detail, "outside") && !strings.Contains(strings.ToLower(recs[0].Detail), "repository") {
+		t.Fatalf("unexpected detail: %q", recs[0].Detail)
+	}
+}
+
 func TestMutationTools_StageFilesPathOutsideRepoIsBlocked(t *testing.T) {
 	t.Helper()
 	ctx := context.Background()
@@ -210,11 +254,12 @@ func testPipeline(t *testing.T, repoRoot string, appr policy.Approver, sink audi
 		t.Fatal(err)
 	}
 	return &runtime.Pipeline{
-		RepoRoot: repoRoot,
-		Policy:   eng,
-		Approver: appr,
-		Git:      ex,
-		Audit:    audit.NewLogger(sink),
+		RepoRoot:  repoRoot,
+		Policy:    eng,
+		RepoProbe: git.NewRepoProbe(ex),
+		Approver:  appr,
+		Git:       ex,
+		Audit:     audit.NewLogger(sink),
 	}
 }
 

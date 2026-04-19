@@ -28,14 +28,15 @@ type Handler struct {
 
 // ToolResult is the deterministic JSON-shaped output for MCP and tests.
 type ToolResult struct {
-	OK              bool   `json:"ok"`
-	Error           string `json:"error,omitempty"`
-	Message         string `json:"message"`
-	DryRunRequested bool   `json:"dry_run_requested"`
-	Mode            string `json:"mode,omitempty"`
-	DryRun          bool   `json:"dry_run,omitempty"`
-	GitStdout       string `json:"git_stdout,omitempty"`
-	GitStderr       string `json:"git_stderr,omitempty"`
+	OK              bool                   `json:"ok"`
+	Error           string                 `json:"error,omitempty"`
+	Message         string                 `json:"message"`
+	DryRunRequested bool                   `json:"dry_run_requested"`
+	Mode            string                 `json:"mode,omitempty"`
+	DryRun          bool                   `json:"dry_run,omitempty"`
+	DryRunPreview   *runtime.DryRunPreview `json:"dry_run_preview,omitempty"`
+	GitStdout       string                 `json:"git_stdout,omitempty"`
+	GitStderr       string                 `json:"git_stderr,omitempty"`
 }
 
 // Execute validates the commit message and runs git commit -m <message>.
@@ -54,12 +55,13 @@ func (h *Handler) Execute(ctx context.Context, repoRoot string, p Params) (ToolR
 	}
 
 	mr := &runtime.MutationRequest{
-		Actor:           actor,
-		Action:          "commit_changes",
-		Target:          auditTargetFromMessage(p.Message),
-		WorkDir:         abs,
-		GitArgs:         []string{"commit", "-m", p.Message},
-		DryRunRequested: p.DryRun,
+		Actor:              actor,
+		Action:             "commit_changes",
+		Target:             auditTargetFromMessage(p.Message),
+		WorkDir:            abs,
+		GitArgs:            []string{"commit", "-m", p.Message},
+		DryRunRequested:    p.DryRun,
+		RequireStagedIndex: true,
 		Validate: func() error {
 			return policy.ValidateCommitMessage(p.Message)
 		},
@@ -109,6 +111,7 @@ func toolResultFromRuntime(r runtime.Result, p Params, execErr error) ToolResult
 	if r.DryRunPreview != nil {
 		out.Mode = "dry-run"
 		out.DryRun = true
+		out.DryRunPreview = r.DryRunPreview
 	} else if out.OK {
 		out.Mode = "execute"
 	}

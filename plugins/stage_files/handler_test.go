@@ -35,11 +35,12 @@ func TestExecute_ValidStaging(t *testing.T) {
 		t.Fatal(err)
 	}
 	pipe := &runtime.Pipeline{
-		RepoRoot: root,
-		Policy:   eng,
-		Approver: policy.AlwaysApprove{},
-		Git:      ex,
-		Audit:    audit.NewLogger(nil),
+		RepoRoot:  root,
+		Policy:    eng,
+		RepoProbe: git.NewRepoProbe(ex),
+		Approver:  policy.AlwaysApprove{},
+		Git:       ex,
+		Audit:     audit.NewLogger(nil),
 	}
 	h := stage_files.Handler{Pipeline: pipe, Actor: "test"}
 	res, err := h.Execute(ctx, root, stage_files.Params{
@@ -74,11 +75,12 @@ func TestExecute_EmptyPaths(t *testing.T) {
 		t.Fatal(err)
 	}
 	pipe := &runtime.Pipeline{
-		RepoRoot: root,
-		Policy:   eng,
-		Approver: policy.AlwaysApprove{},
-		Git:      ex,
-		Audit:    audit.NewLogger(nil),
+		RepoRoot:  root,
+		Policy:    eng,
+		RepoProbe: git.NewRepoProbe(ex),
+		Approver:  policy.AlwaysApprove{},
+		Git:       ex,
+		Audit:     audit.NewLogger(nil),
 	}
 	h := stage_files.Handler{Pipeline: pipe, Actor: "test"}
 	for _, paths := range [][]string{nil, {}} {
@@ -106,11 +108,12 @@ func TestExecute_InvalidPath(t *testing.T) {
 		t.Fatal(err)
 	}
 	pipe := &runtime.Pipeline{
-		RepoRoot: root,
-		Policy:   eng,
-		Approver: policy.AlwaysApprove{},
-		Git:      ex,
-		Audit:    audit.NewLogger(nil),
+		RepoRoot:  root,
+		Policy:    eng,
+		RepoProbe: git.NewRepoProbe(ex),
+		Approver:  policy.AlwaysApprove{},
+		Git:       ex,
+		Audit:     audit.NewLogger(nil),
 	}
 	h := stage_files.Handler{Pipeline: pipe, Actor: "test"}
 	_, err = h.Execute(ctx, root, stage_files.Params{Paths: []string{"ok.txt", ""}})
@@ -136,11 +139,12 @@ func TestExecute_TraversalAttempt(t *testing.T) {
 		t.Fatal(err)
 	}
 	pipe := &runtime.Pipeline{
-		RepoRoot: root,
-		Policy:   eng,
-		Approver: policy.AlwaysApprove{},
-		Git:      ex,
-		Audit:    audit.NewLogger(nil),
+		RepoRoot:  root,
+		Policy:    eng,
+		RepoProbe: git.NewRepoProbe(ex),
+		Approver:  policy.AlwaysApprove{},
+		Git:       ex,
+		Audit:     audit.NewLogger(nil),
 	}
 	h := stage_files.Handler{Pipeline: pipe, Actor: "test"}
 	outside := filepath.Join(filepath.Dir(root), "outside-secret.txt")
@@ -170,11 +174,12 @@ func TestExecute_ApprovalDenied(t *testing.T) {
 		t.Fatal(err)
 	}
 	pipe := &runtime.Pipeline{
-		RepoRoot: root,
-		Policy:   eng,
-		Approver: policy.DenyAll{},
-		Git:      ex,
-		Audit:    audit.NewLogger(nil),
+		RepoRoot:  root,
+		Policy:    eng,
+		RepoProbe: git.NewRepoProbe(ex),
+		Approver:  policy.DenyAll{},
+		Git:       ex,
+		Audit:     audit.NewLogger(nil),
 	}
 	h := stage_files.Handler{Pipeline: pipe, Actor: "test"}
 	_, err = h.Execute(ctx, root, stage_files.Params{Paths: []string{"x.txt"}})
@@ -197,11 +202,12 @@ func TestExecute_DryRunSuccess(t *testing.T) {
 		t.Fatal(err)
 	}
 	pipe := &runtime.Pipeline{
-		RepoRoot: root,
-		Policy:   eng,
-		Approver: policy.AlwaysApprove{},
-		Git:      ex,
-		Audit:    audit.NewLogger(nil),
+		RepoRoot:  root,
+		Policy:    eng,
+		RepoProbe: git.NewRepoProbe(ex),
+		Approver:  policy.AlwaysApprove{},
+		Git:       ex,
+		Audit:     audit.NewLogger(nil),
 	}
 	h := stage_files.Handler{Pipeline: pipe, Actor: "test"}
 	res, err := h.Execute(ctx, root, stage_files.Params{Paths: []string{"dry.txt"}, DryRun: true})
@@ -210,6 +216,11 @@ func TestExecute_DryRunSuccess(t *testing.T) {
 	}
 	if !res.OK || res.Mode != "dry-run" {
 		t.Fatalf("unexpected: %+v", res)
+	}
+	if res.DryRunPreview == nil || res.DryRunPreview.Action != "stage_files" ||
+		len(res.DryRunPreview.GitArgv) == 0 || res.DryRunPreview.EffectSummary == "" ||
+		len(res.DryRunPreview.GitCommands) != 1 || len(res.DryRunPreview.Targets) != 1 {
+		t.Fatalf("dry_run_preview: %+v", res.DryRunPreview)
 	}
 	out, err := exec.Command("git", "-C", root, "diff", "--cached", "--name-only").CombinedOutput()
 	if err != nil {
@@ -233,11 +244,12 @@ func TestExecute_GitExecutionFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	pipe := &runtime.Pipeline{
-		RepoRoot: root,
-		Policy:   eng,
-		Approver: policy.AlwaysApprove{},
-		Git:      ex,
-		Audit:    audit.NewLogger(nil),
+		RepoRoot:  root,
+		Policy:    eng,
+		RepoProbe: git.NewRepoProbe(ex),
+		Approver:  policy.AlwaysApprove{},
+		Git:       ex,
+		Audit:     audit.NewLogger(nil),
 	}
 	h := stage_files.Handler{Pipeline: pipe, Actor: "test"}
 	res, err := h.Execute(ctx, root, stage_files.Params{Paths: []string{"no-such-file-in-repo.txt"}})

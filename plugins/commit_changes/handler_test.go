@@ -39,11 +39,12 @@ func TestExecute_ValidCommit(t *testing.T) {
 		t.Fatal(err)
 	}
 	pipe := &runtime.Pipeline{
-		RepoRoot: root,
-		Policy:   eng,
-		Approver: policy.AlwaysApprove{},
-		Git:      ex,
-		Audit:    audit.NewLogger(nil),
+		RepoRoot:  root,
+		Policy:    eng,
+		RepoProbe: git.NewRepoProbe(ex),
+		Approver:  policy.AlwaysApprove{},
+		Git:       ex,
+		Audit:     audit.NewLogger(nil),
 	}
 	h := commit_changes.Handler{Pipeline: pipe, Actor: "test"}
 	msg := "Add tracked content"
@@ -83,11 +84,12 @@ func TestExecute_InvalidOrEmptyMessage(t *testing.T) {
 		t.Fatal(err)
 	}
 	pipe := &runtime.Pipeline{
-		RepoRoot: root,
-		Policy:   eng,
-		Approver: policy.AlwaysApprove{},
-		Git:      ex,
-		Audit:    audit.NewLogger(nil),
+		RepoRoot:  root,
+		Policy:    eng,
+		RepoProbe: git.NewRepoProbe(ex),
+		Approver:  policy.AlwaysApprove{},
+		Git:       ex,
+		Audit:     audit.NewLogger(nil),
 	}
 	h := commit_changes.Handler{Pipeline: pipe, Actor: "test"}
 
@@ -129,16 +131,20 @@ func TestExecute_NoStagedChanges(t *testing.T) {
 		t.Fatal(err)
 	}
 	pipe := &runtime.Pipeline{
-		RepoRoot: root,
-		Policy:   eng,
-		Approver: policy.AlwaysApprove{},
-		Git:      ex,
-		Audit:    audit.NewLogger(nil),
+		RepoRoot:  root,
+		Policy:    eng,
+		RepoProbe: git.NewRepoProbe(ex),
+		Approver:  policy.AlwaysApprove{},
+		Git:       ex,
+		Audit:     audit.NewLogger(nil),
 	}
 	h := commit_changes.Handler{Pipeline: pipe, Actor: "test"}
 	res, err := h.Execute(ctx, root, commit_changes.Params{Message: "Commit unstaged only"})
 	if err == nil {
-		t.Fatal("expected git error")
+		t.Fatal("expected repo state error")
+	}
+	if !errors.Is(err, policy.ErrRepoState) {
+		t.Fatalf("want ErrRepoState, got %v", err)
 	}
 	if res.OK {
 		t.Fatal("expected ok=false")
@@ -163,11 +169,12 @@ func TestExecute_ApprovalDenied(t *testing.T) {
 		t.Fatal(err)
 	}
 	pipe := &runtime.Pipeline{
-		RepoRoot: root,
-		Policy:   eng,
-		Approver: policy.DenyAll{},
-		Git:      ex,
-		Audit:    audit.NewLogger(nil),
+		RepoRoot:  root,
+		Policy:    eng,
+		RepoProbe: git.NewRepoProbe(ex),
+		Approver:  policy.DenyAll{},
+		Git:       ex,
+		Audit:     audit.NewLogger(nil),
 	}
 	h := commit_changes.Handler{Pipeline: pipe, Actor: "test"}
 	_, err = h.Execute(ctx, root, commit_changes.Params{Message: "Denied"})
@@ -199,11 +206,12 @@ func TestExecute_DryRunSuccess(t *testing.T) {
 		t.Fatal(err)
 	}
 	pipe := &runtime.Pipeline{
-		RepoRoot: root,
-		Policy:   eng,
-		Approver: policy.AlwaysApprove{},
-		Git:      ex,
-		Audit:    audit.NewLogger(nil),
+		RepoRoot:  root,
+		Policy:    eng,
+		RepoProbe: git.NewRepoProbe(ex),
+		Approver:  policy.AlwaysApprove{},
+		Git:       ex,
+		Audit:     audit.NewLogger(nil),
 	}
 	h := commit_changes.Handler{Pipeline: pipe, Actor: "test"}
 	res, err := h.Execute(ctx, root, commit_changes.Params{Message: "Should not run", DryRun: true})
@@ -212,6 +220,11 @@ func TestExecute_DryRunSuccess(t *testing.T) {
 	}
 	if !res.OK || res.Mode != "dry-run" {
 		t.Fatalf("unexpected: %+v", res)
+	}
+	if res.DryRunPreview == nil || res.DryRunPreview.Action != "commit_changes" ||
+		len(res.DryRunPreview.GitArgv) == 0 || res.DryRunPreview.EffectSummary == "" ||
+		len(res.DryRunPreview.GitCommands) != 1 {
+		t.Fatalf("dry_run_preview: %+v", res.DryRunPreview)
 	}
 	headAfter, err := exec.Command("git", "-C", root, "rev-parse", "HEAD").Output()
 	if err != nil {
@@ -256,11 +269,12 @@ func TestExecute_GitExecutionFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	pipe := &runtime.Pipeline{
-		RepoRoot: root,
-		Policy:   eng,
-		Approver: policy.AlwaysApprove{},
-		Git:      ex,
-		Audit:    audit.NewLogger(nil),
+		RepoRoot:  root,
+		Policy:    eng,
+		RepoProbe: git.NewRepoProbe(ex),
+		Approver:  policy.AlwaysApprove{},
+		Git:       ex,
+		Audit:     audit.NewLogger(nil),
 	}
 	h := commit_changes.Handler{Pipeline: pipe, Actor: "test"}
 	res, err := h.Execute(ctx, root, commit_changes.Params{Message: "Hook blocks this"})

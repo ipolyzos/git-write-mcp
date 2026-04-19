@@ -7,6 +7,8 @@ package runtime
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/ipolyzos/git-write-mcp/internal/audit"
@@ -23,18 +25,20 @@ type GitRunner interface {
 type Pipeline struct {
 	RepoRoot string
 	Policy   *policy.Engine
-	Approver policy.Approver
-	Git      GitRunner
-	Audit    *audit.Logger
+	// RepoProbe supplies read-only git inspection for [policy.ValidateRepoState]. Nil skips git probes.
+	RepoProbe policy.RepoGitProbe
+	Approver  policy.Approver
+	Git       GitRunner
+	Audit     *audit.Logger
 }
 
 // Execute runs the mutation pipeline steps in order:
 // 1. request validation
-// 2. repository boundary (policy engine)
+// 2. repository state ([policy.ValidateRepoState])
 // 3. centralized approval
 // 4. dry-run preview + gated skip (no mutation)
-// 5. git execution
-// 6. audit record
+// 5. git execution or [MutationRequest.APIExecute]
+// 6. audit record ([audit.Append])
 // 7. structured result
 func (p *Pipeline) Execute(ctx context.Context, req *MutationRequest) (Result, error) {
 	if p == nil {
@@ -45,110 +49,157 @@ func (p *Pipeline) Execute(ctx context.Context, req *MutationRequest) (Result, e
 	}
 
 	ts := time.Now().UTC()
-	rec := audit.Record{
-		Timestamp: ts,
-		Actor:     req.Actor,
-		Action:    req.Action,
-		Target:    req.Target,
-	}
 
-	if p.Git == nil {
-		rec.Mode = audit.ModeBlocked
-		rec.Outcome = audit.OutcomeFailure
-		rec.Detail = "nil git runner"
-		p.emit(ctx, rec)
-		return Result{}, errors.New("runtime: nil git runner")
+	if p.Git == nil && req.APIExecute == nil {
+		meta, aerr := p.appendAudit(ctx, req, ts, audit.ModeBlocked, audit.OutcomeFailure, "nil git runner")
+		res := Result{Audit: meta}
+		if aerr != nil {
+			return res, fmt.Errorf("audit: %w", aerr)
+		}
+		return res, errors.New("runtime: nil git runner")
 	}
 
 	if req.Validate != nil {
 		if err := req.Validate(); err != nil {
-			rec.Mode = audit.ModeBlocked
-			rec.Outcome = audit.OutcomeFailure
-			rec.Detail = err.Error()
-			p.emit(ctx, rec)
-			return Result{}, err
+			meta, aerr := p.appendAudit(ctx, req, ts, audit.ModeBlocked, audit.OutcomeFailure, err.Error())
+			res := Result{Audit: meta}
+			if aerr != nil {
+				return res, fmt.Errorf("audit: %w", aerr)
+			}
+			return res, err
 		}
 	}
 
+	repoRoot := strings.TrimSpace(p.RepoRoot)
+	if p.Policy != nil && repoRoot == "" {
+		repoRoot = p.Policy.RepoRoot()
+	}
 	if p.Policy != nil {
-		if err := p.Policy.MustBeContainedUnderRepo(req.WorkDir); err != nil {
-			rec.Mode = audit.ModeBlocked
-			rec.Outcome = audit.OutcomeFailure
-			rec.Detail = err.Error()
-			p.emit(ctx, rec)
-			return Result{}, err
+		rs := policy.ValidateRepoState(ctx, p.Policy, p.RepoProbe, policy.RepoStateCheckInput{
+			RepoRoot:           repoRoot,
+			WorkDir:            req.WorkDir,
+			Action:             req.Action,
+			FromRef:            req.FromRef,
+			TargetRef:          req.TargetRef,
+			RejectDetachedHEAD: req.RejectDetachedHEAD,
+			RequireStagedIndex: req.RequireStagedIndex,
+			RequireHEADBranch:  req.RequireHEADBranch,
+		})
+		if !rs.OK {
+			meta, aerr := p.appendAudit(ctx, req, ts, audit.ModeBlocked, audit.OutcomeFailure, rs.Detail)
+			res := Result{Audit: meta}
+			if aerr != nil {
+				return res, fmt.Errorf("audit: %w", aerr)
+			}
+			return res, fmt.Errorf("%w: %v", policy.ErrRepoState, rs.Detail)
 		}
 	}
 
-	if p.Approver == nil {
-		rec.Mode = audit.ModeBlocked
-		rec.Outcome = audit.OutcomeFailure
-		rec.Detail = policy.ErrApprovalRequired.Error()
-		p.emit(ctx, rec)
-		return Result{}, policy.ErrApprovalRequired
-	}
-
-	inv := policy.InvocationRequest{
-		WorkDir:         req.WorkDir,
-		Args:            req.GitArgs,
+	dec := policy.EvaluateApproval(ctx, p.Approver, policy.ApprovalCheckInput{
 		Actor:           req.Actor,
 		Action:          req.Action,
 		Target:          req.Target,
+		WorkDir:         req.WorkDir,
+		GitArgs:         req.GitArgs,
 		DryRunRequested: req.DryRunRequested,
-	}
-	d, err := p.Approver.Approve(ctx, inv)
-	if err != nil {
-		rec.Mode = audit.ModeBlocked
-		rec.Outcome = audit.OutcomeFailure
-		rec.Detail = err.Error()
-		p.emit(ctx, rec)
-		return Result{}, err
-	}
-	if !d.Approved {
-		rec.Mode = audit.ModeBlocked
-		rec.Outcome = audit.OutcomeFailure
-		rec.Detail = policy.ErrApprovalRequired.Error()
-		p.emit(ctx, rec)
-		return Result{}, policy.ErrApprovalRequired
+	})
+	if !dec.Allowed {
+		meta, aerr := p.appendAudit(ctx, req, ts, audit.ModeBlocked, audit.OutcomeFailure, dec.DenyDetail)
+		res := Result{Audit: meta}
+		if aerr != nil {
+			return res, fmt.Errorf("audit: %w", aerr)
+		}
+		return res, policy.ErrApprovalFromDecision(dec)
 	}
 
-	skipExec := d.DryRun || req.DryRunRequested
-	preview := &DryRunPreview{
-		GitArgv: append([]string(nil), req.GitArgs...),
-		WorkDir: req.WorkDir,
-	}
+	skipExec := dec.DryRun || req.DryRunRequested
+	previewBody := BuildDryRunPreview(req)
+	preview := &previewBody
 
 	if skipExec {
-		gr, err := p.Git.RunApproved(ctx, req.WorkDir, req.GitArgs, true)
-		if err != nil {
-			rec.Mode = audit.ModeBlocked
-			rec.Outcome = audit.OutcomeFailure
-			rec.Detail = err.Error()
-			p.emit(ctx, rec)
-			return Result{DryRunPreview: preview, GitResult: gr}, err
+		var gr git.RunResult
+		var runErr error
+		if req.APIExecute != nil {
+			gr = git.RunResult{Skipped: true}
+		} else {
+			if p.Git == nil {
+				meta, aerr := p.appendAudit(ctx, req, ts, audit.ModeBlocked, audit.OutcomeFailure, "nil git runner")
+				res := Result{Audit: meta}
+				if aerr != nil {
+					return res, fmt.Errorf("audit: %w", aerr)
+				}
+				return res, errors.New("runtime: nil git runner")
+			}
+			gr, runErr = p.Git.RunApproved(ctx, req.WorkDir, req.GitArgs, true)
+			if runErr != nil {
+				meta, aerr := p.appendAudit(ctx, req, ts, audit.ModeBlocked, audit.OutcomeFailure, runErr.Error())
+				res := Result{DryRunPreview: preview, GitResult: gr, Audit: meta}
+				if aerr != nil {
+					return res, fmt.Errorf("audit: %w", aerr)
+				}
+				return res, runErr
+			}
 		}
-		rec.Mode = audit.ModeDryRun
-		rec.Outcome = audit.OutcomeSuccess
-		p.emit(ctx, rec)
-		return Result{OK: true, DryRunPreview: preview, GitResult: gr}, nil
+		meta, aerr := p.appendAudit(ctx, req, ts, audit.ModeDryRun, audit.OutcomeSuccess, "")
+		res := Result{OK: true, DryRunPreview: preview, GitResult: gr, Audit: meta}
+		if aerr != nil {
+			return res, fmt.Errorf("audit: %w", aerr)
+		}
+		return res, nil
 	}
 
-	rec.Mode = audit.ModeExecute
+	if req.APIExecute != nil {
+		if err := req.APIExecute(ctx); err != nil {
+			meta, aerr := p.appendAudit(ctx, req, ts, audit.ModeExecute, audit.OutcomeFailure, err.Error())
+			res := Result{Audit: meta}
+			if aerr != nil {
+				return res, fmt.Errorf("audit: %w", aerr)
+			}
+			return res, err
+		}
+		meta, aerr := p.appendAudit(ctx, req, ts, audit.ModeExecute, audit.OutcomeSuccess, "")
+		res := Result{OK: true, GitResult: git.RunResult{}, Audit: meta}
+		if aerr != nil {
+			return res, fmt.Errorf("audit: %w", aerr)
+		}
+		return res, nil
+	}
+
+	if p.Git == nil {
+		meta, aerr := p.appendAudit(ctx, req, ts, audit.ModeBlocked, audit.OutcomeFailure, "nil git runner")
+		res := Result{Audit: meta}
+		if aerr != nil {
+			return res, fmt.Errorf("audit: %w", aerr)
+		}
+		return res, errors.New("runtime: nil git runner")
+	}
+
 	gr, err := p.Git.RunApproved(ctx, req.WorkDir, req.GitArgs, false)
 	if err != nil {
-		rec.Outcome = audit.OutcomeFailure
-		rec.Detail = err.Error()
-		p.emit(ctx, rec)
-		return Result{GitResult: gr}, err
+		meta, aerr := p.appendAudit(ctx, req, ts, audit.ModeExecute, audit.OutcomeFailure, err.Error())
+		res := Result{GitResult: gr, Audit: meta}
+		if aerr != nil {
+			return res, fmt.Errorf("audit: %w", aerr)
+		}
+		return res, err
 	}
-	rec.Outcome = audit.OutcomeSuccess
-	p.emit(ctx, rec)
-	return Result{OK: true, GitResult: gr}, nil
+	meta, aerr := p.appendAudit(ctx, req, ts, audit.ModeExecute, audit.OutcomeSuccess, "")
+	res := Result{OK: true, GitResult: gr, Audit: meta}
+	if aerr != nil {
+		return res, fmt.Errorf("audit: %w", aerr)
+	}
+	return res, nil
 }
 
-func (p *Pipeline) emit(ctx context.Context, rec audit.Record) {
-	if p == nil || p.Audit == nil {
-		return
-	}
-	_ = p.Audit.Emit(ctx, rec)
+func (p *Pipeline) appendAudit(ctx context.Context, req *MutationRequest, ts time.Time, mode, outcome, detail string) (audit.AppendMetadata, error) {
+	return audit.Append(ctx, p.Audit, audit.AppendInput{
+		Timestamp:     ts,
+		Actor:         req.Actor,
+		Action:        req.Action,
+		Target:        req.Target,
+		Mode:          mode,
+		Outcome:       outcome,
+		Detail:        detail,
+		CorrelationID: req.CorrelationID,
+	})
 }

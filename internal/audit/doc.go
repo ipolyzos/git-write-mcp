@@ -2,5 +2,5 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-// Package audit defines structured audit records and sinks for mutation pipeline emissions.
+// Package audit defines structured audit records, [Append] for pipeline emissions, and sinks.
 package audit

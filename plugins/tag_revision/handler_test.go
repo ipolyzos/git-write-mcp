@@ -34,11 +34,12 @@ func TestExecute_ValidAnnotatedTag(t *testing.T) {
 		t.Fatal(err)
 	}
 	pipe := &runtime.Pipeline{
-		RepoRoot: root,
-		Policy:   eng,
-		Approver: policy.AlwaysApprove{},
-		Git:      ex,
-		Audit:    audit.NewLogger(nil),
+		RepoRoot:  root,
+		Policy:    eng,
+		RepoProbe: git.NewRepoProbe(ex),
+		Approver:  policy.AlwaysApprove{},
+		Git:       ex,
+		Audit:     audit.NewLogger(nil),
 	}
 	h := tag_revision.Handler{Pipeline: pipe, Actor: "test"}
 
@@ -79,11 +80,12 @@ func TestExecute_InvalidTagName(t *testing.T) {
 		t.Fatal(err)
 	}
 	pipe := &runtime.Pipeline{
-		RepoRoot: root,
-		Policy:   eng,
-		Approver: policy.AlwaysApprove{},
-		Git:      ex,
-		Audit:    audit.NewLogger(nil),
+		RepoRoot:  root,
+		Policy:    eng,
+		RepoProbe: git.NewRepoProbe(ex),
+		Approver:  policy.AlwaysApprove{},
+		Git:       ex,
+		Audit:     audit.NewLogger(nil),
 	}
 	h := tag_revision.Handler{Pipeline: pipe, Actor: "test"}
 
@@ -113,11 +115,12 @@ func TestExecute_InvalidTargetRef(t *testing.T) {
 		t.Fatal(err)
 	}
 	pipe := &runtime.Pipeline{
-		RepoRoot: root,
-		Policy:   eng,
-		Approver: policy.AlwaysApprove{},
-		Git:      ex,
-		Audit:    audit.NewLogger(nil),
+		RepoRoot:  root,
+		Policy:    eng,
+		RepoProbe: git.NewRepoProbe(ex),
+		Approver:  policy.AlwaysApprove{},
+		Git:       ex,
+		Audit:     audit.NewLogger(nil),
 	}
 	h := tag_revision.Handler{Pipeline: pipe, Actor: "test"}
 
@@ -148,11 +151,12 @@ func TestExecute_EmptyMessage(t *testing.T) {
 		t.Fatal(err)
 	}
 	pipe := &runtime.Pipeline{
-		RepoRoot: root,
-		Policy:   eng,
-		Approver: policy.AlwaysApprove{},
-		Git:      ex,
-		Audit:    audit.NewLogger(nil),
+		RepoRoot:  root,
+		Policy:    eng,
+		RepoProbe: git.NewRepoProbe(ex),
+		Approver:  policy.AlwaysApprove{},
+		Git:       ex,
+		Audit:     audit.NewLogger(nil),
 	}
 	h := tag_revision.Handler{Pipeline: pipe, Actor: "test"}
 
@@ -182,11 +186,12 @@ func TestExecute_ApprovalDenied(t *testing.T) {
 		t.Fatal(err)
 	}
 	pipe := &runtime.Pipeline{
-		RepoRoot: root,
-		Policy:   eng,
-		Approver: policy.DenyAll{},
-		Git:      ex,
-		Audit:    audit.NewLogger(nil),
+		RepoRoot:  root,
+		Policy:    eng,
+		RepoProbe: git.NewRepoProbe(ex),
+		Approver:  policy.DenyAll{},
+		Git:       ex,
+		Audit:     audit.NewLogger(nil),
 	}
 	h := tag_revision.Handler{Pipeline: pipe, Actor: "test"}
 
@@ -212,11 +217,12 @@ func TestExecute_DryRunSuccess(t *testing.T) {
 		t.Fatal(err)
 	}
 	pipe := &runtime.Pipeline{
-		RepoRoot: root,
-		Policy:   eng,
-		Approver: policy.AlwaysApprove{},
-		Git:      ex,
-		Audit:    audit.NewLogger(nil),
+		RepoRoot:  root,
+		Policy:    eng,
+		RepoProbe: git.NewRepoProbe(ex),
+		Approver:  policy.AlwaysApprove{},
+		Git:       ex,
+		Audit:     audit.NewLogger(nil),
 	}
 	h := tag_revision.Handler{Pipeline: pipe, Actor: "test"}
 
@@ -230,6 +236,12 @@ func TestExecute_DryRunSuccess(t *testing.T) {
 	}
 	if !res.OK || res.Mode != "dry-run" {
 		t.Fatalf("unexpected: %+v", res)
+	}
+	if res.DryRunPreview == nil || res.DryRunPreview.Action != "tag_revision" ||
+		len(res.DryRunPreview.GitArgv) == 0 || res.DryRunPreview.EffectSummary == "" ||
+		len(res.DryRunPreview.GitCommands) != 1 ||
+		len(res.DryRunPreview.Targets) != 1 || res.DryRunPreview.Targets[0] != "v0-dry-run" {
+		t.Fatalf("dry_run_preview: %+v", res.DryRunPreview)
 	}
 	out, err := exec.Command("git", "-C", root, "tag", "-l", "v0-dry-run").CombinedOutput()
 	if err != nil {
@@ -253,11 +265,12 @@ func TestExecute_GitExecutionFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	pipe := &runtime.Pipeline{
-		RepoRoot: root,
-		Policy:   eng,
-		Approver: policy.AlwaysApprove{},
-		Git:      ex,
-		Audit:    audit.NewLogger(nil),
+		RepoRoot:  root,
+		Policy:    eng,
+		RepoProbe: git.NewRepoProbe(ex),
+		Approver:  policy.AlwaysApprove{},
+		Git:       ex,
+		Audit:     audit.NewLogger(nil),
 	}
 	h := tag_revision.Handler{Pipeline: pipe, Actor: "test"}
 
@@ -267,7 +280,10 @@ func TestExecute_GitExecutionFailure(t *testing.T) {
 		Message:   "Points nowhere",
 	})
 	if err == nil {
-		t.Fatal("expected git error")
+		t.Fatal("expected repo state error")
+	}
+	if !errors.Is(err, policy.ErrRepoState) {
+		t.Fatalf("want ErrRepoState, got %v", err)
 	}
 	if res.OK {
 		t.Fatal("expected ok=false")

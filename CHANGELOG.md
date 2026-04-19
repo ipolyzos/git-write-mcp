@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-04-19
+
+Second release: GitHub-aware MCP tools (PR create/merge/status, releases from main), documentation hub under **`docs/`**, community **`SECURITY.md`** / **`CODE_OF_CONDUCT.md`**, contracts tests for capability parity, and expanded mutation pipeline (repo-state checks, centralized approval, audit append).
+
+### Added
+
+- **Community files:** root **`SECURITY.md`** (private vulnerability reporting via GitHub Security Advisories and **git@ipolyzos.com**); **`CODE_OF_CONDUCT.md`** (Contributor Covenant 2.1). **`LICENSE`** unchanged (Apache-2.0). Root **`README.md`** and **`docs/README.md`** link these so GitHub’s **About** sidebar shows **License**, **Security**, and **Code of conduct** alongside **README**.
+- **Documentation hub under `docs/`**: expanded guides (overview, safety model, workflow, configuration, security, development, MCP clients / Cursor setup, repository layout); full MCP tool reference at **`docs/reference/mcp-tools.md`**; root **`README.md`** is a short index pointing into **`docs/`**. **`CHANGELOG.md`** stays at repository root per Keep a Changelog tooling expectations.
+- **`policy.KnownMutationActions`**: sorted list of actions accepted by **`EvaluateApproval`**; **`internal/contracts`** package tests enforce parity with **`get_capabilities`** **`write_tools`** so approval checks and capability metadata cannot drift.
+- MCP tool **`create_release_from_main`**: **`POST /repos/{owner}/{repo}/releases`** with **`target_commitish`** from **`GIT_WRITE_MCP_RELEASE_SOURCE_BRANCH`** (default **`main`**); local checkout must match that branch (**`policy.RequireHEADMatchesReleaseSource`**); requires **`tag_name`**, **`release_name`**, and **`release_notes`** or **`changelog_section`**; **`runtime.Pipeline`** (approval, dry-run, audit); **`github.MCPGitHub`** extended with **`CreateRelease`**. **`docs/reference/mcp-tools.md`** documents inputs and env.
+- MCP tool **`merge_pull_request`**: merges via **`PUT .../pulls/{n}/merge`** after **`policy.EvaluateMergePolicy`** (base branch allowlist **`GIT_WRITE_MCP_ALLOWED_PR_TARGET_BRANCHES`**, **`GIT_WRITE_MCP_MERGE_ALLOWED_METHODS`**, green checks, review counts, **`mergeable_state` clean**); **`runtime.Pipeline`** (approval, dry-run, audit); **`github.MCPGitHub`** extended with **`PRMerger`**. See **`docs/reference/mcp-tools.md`** merge policy fields.
+- MCP tool **`get_pull_request_status`**: read-only PR readiness via GitHub REST (`GET` pull, combined **`status`** for head SHA, **`reviews`**); structured `checks_summary` and `reviews_summary`; **`plugin.Capabilities`** gains **`read_tools`** (`get_pull_request_status`). No mutation pipeline; requires the same **`GITHUB_TOKEN`** / repo env as other GitHub tools when **`GIT_WRITE_MCP_REPO_ROOT`** is configured.
+- MCP tool **`create_pull_request`**: opens a GitHub PR via **`POST /repos/{owner}/{repo}/pulls`** using **`internal/integration/github`** (`PRWriter`); default **`target_branch`** is **`develop`**; **`GIT_WRITE_MCP_ALLOWED_PR_TARGET_BRANCHES`** controls allowed bases (default **`develop`** only). Uses **`runtime.Pipeline`** (approval, dry-run preview with API command line, audit); requires **`GITHUB_TOKEN`** and **`GITHUB_REPOSITORY`** (or **`GITHUB_REPOSITORY_OWNER`** / **`GITHUB_REPOSITORY_NAME`**) when the server starts.
+- MCP tool **`push_branch`**: allowlisted `git push <remote> <branch>` only (no force/refspec/flags); remote allowlist via **`GIT_WRITE_MCP_ALLOWED_PUSH_REMOTES`** (default **`origin`**); requires current **`HEAD`** to match **`branch_name`**; approval, dry-run, audit via **`plugins/push_branch`** and **`runtime.Pipeline`**.
+- **`internal/integration/github`**: typed GitHub REST foundation (`Config`, `Repository`, `HTTPDoer`, `Client`, `Integration` stubs, `DecodePullRequestResponse`, `LoadConfigFromEnv`); injectable HTTP for tests; **`docs/github-integration.md`** documents env vars, Actions permissions, and secret handling.
+- MCP tool **`unstage_files`**: validated paths removed from the index via allowlisted `git reset HEAD --` only; approval, dry-run, audit via **`plugins/unstage_files`** and **`runtime.Pipeline`** (companion to **`stage_files`**).
+- MCP tool **`get_capabilities`**: deterministic JSON (`[plugin.Capabilities]` / **`plugin.CapabilitiesJSON`**) listing **`write_tools`**, **`read_tools`** (`get_pull_request_status`), safety **`behaviors`** (`approval_required`, `audit_trail_enabled`, `dry_run_supported`), and **`excluded_read_tools`** delegated elsewhere (`git_status`, `git_diff`, `git_log`, `git_show`, `git_blame`, `git_branch_list`).
+- **`audit.Append`** / **`AppendInput`** / **`AppendMetadata`**: standard append path for mutation audit lines; **`Record`** gains **`audit_id`** (generated when unset) and optional **`correlation_id`**. **`runtime.Result.Audit`** echoes ids for callers; **`MutationRequest.CorrelationID`** passes through for tracing.
+- **Shared dry-run preview**: **`runtime.BuildDryRunPreview`** and extended **`runtime.DryRunPreview`** (`action`, `targets`, `secondary_refs`, **`git_commands`** printable line with `git -C`, **`effect_summary`**). Populated on every dry-run **`Pipeline.Execute`** result. Plugin **`ToolResult`** types (`create_branch`, `stage_files`, `unstage_files`, `commit_changes`, `tag_revision`) expose **`dry_run_preview`** when **`mode`** is **`dry-run`**.
+- **`policy.ValidateRepoState`** with **`RepoStateCheckInput`**, **`RepoStateResult`**, **`RepoValidationCode`**, and **`policy.ErrRepoState`**: deterministic structured checks for policy engine root alignment, repository path existence, workdir containment, optional ref syntax and existence, detached-HEAD policy, and per-action preconditions (e.g. staged index for commits). **`policy.RepoGitProbe`** abstracts read-only git inspection; **`git.NewRepoProbe`** implements it via narrow allowlisted argv.
+- **`runtime.Pipeline.RepoProbe`** and **`runtime.MutationRequest`** fields **`FromRef`**, **`TargetRef`**, **`RejectDetachedHEAD`**, **`RequireStagedIndex`** wire repo-state validation after request validation and before approval. Server **`BuildServeConfig`** sets **`RepoProbe: git.NewRepoProbe(ex)`**.
+- **`policy.EvaluateApproval`** / **`ApprovalCheckInput`** / **`ApprovalDecision`**: centralized mutation approval with typed deny reasons (`missing_context`, `unsupported_action`, `no_approver`, `rejected`, `approver_error`); **`runtime.Pipeline`** uses this path before git runs.
+
+### Changed
+
+- **CI / `make test`**: **`go test`** runs with **`-shuffle=on`** in addition to **`-race`** to surface ordering assumptions.
+- **`internal/git`**: allowlisted **`reset`** only for **`git reset HEAD -- <path>...`** (index-only unstaging); all other **`reset`** argv remains blocked as destructive.
+- **`runtime.Pipeline.Execute`**: records mutations via **`audit.Append`**; sink failures return **`fmt.Errorf("audit: %w", err)`** after **`Result.Audit`** is populated. Repository boundary enforcement is folded into **`policy.ValidateRepoState`** (replacing the standalone **`MustBeContainedUnderRepo`** call). Mutations that fail repo-state checks return **`policy.ErrRepoState`** before approval.
+
 ## [0.1.0] - 2026-04-18
 
 First release of the git-write-mcp stdio MCP server with four mutation tools,
@@ -39,5 +68,6 @@ policy-backed validation, approvals, dry-run, and structured auditing.
 
 - `stage_files`: path validation runs inside the mutation pipeline so invalid or out-of-repo paths emit a blocked audit record (previously returned before `Pipeline.Execute`).
 
-[Unreleased]: https://github.com/ipolyzos/git-write-mcp/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/ipolyzos/git-write-mcp/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/ipolyzos/git-write-mcp/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/ipolyzos/git-write-mcp/releases/tag/v0.1.0

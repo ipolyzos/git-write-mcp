@@ -29,15 +29,16 @@ type Handler struct {
 
 // ToolResult is the deterministic JSON-shaped output for MCP and tests.
 type ToolResult struct {
-	OK              bool   `json:"ok"`
-	Error           string `json:"error,omitempty"`
-	BranchName      string `json:"branch_name"`
-	FromRef         string `json:"from_ref,omitempty"`
-	DryRunRequested bool   `json:"dry_run_requested"`
-	Mode            string `json:"mode,omitempty"`
-	DryRun          bool   `json:"dry_run,omitempty"`
-	GitStdout       string `json:"git_stdout,omitempty"`
-	GitStderr       string `json:"git_stderr,omitempty"`
+	OK              bool                   `json:"ok"`
+	Error           string                 `json:"error,omitempty"`
+	BranchName      string                 `json:"branch_name"`
+	FromRef         string                 `json:"from_ref,omitempty"`
+	DryRunRequested bool                   `json:"dry_run_requested"`
+	Mode            string                 `json:"mode,omitempty"`
+	DryRun          bool                   `json:"dry_run,omitempty"`
+	DryRunPreview   *runtime.DryRunPreview `json:"dry_run_preview,omitempty"`
+	GitStdout       string                 `json:"git_stdout,omitempty"`
+	GitStderr       string                 `json:"git_stderr,omitempty"`
 }
 
 // Execute validates inputs and runs the mutation pipeline.
@@ -54,13 +55,16 @@ func (h *Handler) Execute(ctx context.Context, repoRoot string, p Params) (ToolR
 		actor = "mcp"
 	}
 
+	fromRef := strings.TrimSpace(p.FromRef)
 	mr := &runtime.MutationRequest{
-		Actor:           actor,
-		Action:          "create_branch",
-		Target:          p.BranchName,
-		WorkDir:         abs,
-		GitArgs:         gitArgv(p),
-		DryRunRequested: p.DryRun,
+		Actor:              actor,
+		Action:             "create_branch",
+		Target:             p.BranchName,
+		WorkDir:            abs,
+		GitArgs:            gitArgv(p),
+		DryRunRequested:    p.DryRun,
+		FromRef:            fromRef,
+		RejectDetachedHEAD: true,
 		Validate: func() error {
 			if strings.TrimSpace(p.BranchName) == "" {
 				return &policy.ValidationError{Field: "branch_name", Msg: "required"}
@@ -68,8 +72,8 @@ func (h *Handler) Execute(ctx context.Context, repoRoot string, p Params) (ToolR
 			if err := policy.ValidateBranchName(p.BranchName); err != nil {
 				return err
 			}
-			if strings.TrimSpace(p.FromRef) != "" {
-				if err := policy.ValidateRefName(p.FromRef); err != nil {
+			if fromRef != "" {
+				if err := policy.ValidateRefName(fromRef); err != nil {
 					return err
 				}
 			}
@@ -111,6 +115,7 @@ func toolResultFromRuntime(r runtime.Result, p Params, execErr error) ToolResult
 	if r.DryRunPreview != nil {
 		out.Mode = "dry-run"
 		out.DryRun = true
+		out.DryRunPreview = r.DryRunPreview
 	} else if out.OK {
 		out.Mode = "execute"
 	}

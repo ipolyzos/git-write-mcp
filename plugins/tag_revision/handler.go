@@ -30,16 +30,17 @@ type Handler struct {
 
 // ToolResult is the deterministic JSON-shaped output for MCP and tests.
 type ToolResult struct {
-	OK              bool   `json:"ok"`
-	Error           string `json:"error,omitempty"`
-	TagName         string `json:"tag_name"`
-	TargetRef       string `json:"target_ref,omitempty"`
-	Message         string `json:"message"`
-	DryRunRequested bool   `json:"dry_run_requested"`
-	Mode            string `json:"mode,omitempty"`
-	DryRun          bool   `json:"dry_run,omitempty"`
-	GitStdout       string `json:"git_stdout,omitempty"`
-	GitStderr       string `json:"git_stderr,omitempty"`
+	OK              bool                   `json:"ok"`
+	Error           string                 `json:"error,omitempty"`
+	TagName         string                 `json:"tag_name"`
+	TargetRef       string                 `json:"target_ref,omitempty"`
+	Message         string                 `json:"message"`
+	DryRunRequested bool                   `json:"dry_run_requested"`
+	Mode            string                 `json:"mode,omitempty"`
+	DryRun          bool                   `json:"dry_run,omitempty"`
+	DryRunPreview   *runtime.DryRunPreview `json:"dry_run_preview,omitempty"`
+	GitStdout       string                 `json:"git_stdout,omitempty"`
+	GitStderr       string                 `json:"git_stderr,omitempty"`
 }
 
 // Execute validates inputs and runs `git tag -a <tag_name> -m <message> [<target_ref>]`.
@@ -57,6 +58,7 @@ func (h *Handler) Execute(ctx context.Context, repoRoot string, p Params) (ToolR
 		actor = "mcp"
 	}
 
+	targetRef := strings.TrimSpace(p.TargetRef)
 	mr := &runtime.MutationRequest{
 		Actor:           actor,
 		Action:          "tag_revision",
@@ -64,6 +66,7 @@ func (h *Handler) Execute(ctx context.Context, repoRoot string, p Params) (ToolR
 		WorkDir:         abs,
 		GitArgs:         gitArgv(p),
 		DryRunRequested: p.DryRun,
+		TargetRef:       targetRef,
 		Validate: func() error {
 			if strings.TrimSpace(p.TagName) == "" {
 				return &policy.ValidationError{Field: "tag_name", Msg: "required"}
@@ -74,8 +77,8 @@ func (h *Handler) Execute(ctx context.Context, repoRoot string, p Params) (ToolR
 			if err := policy.ValidateCommitMessage(p.Message); err != nil {
 				return err
 			}
-			if strings.TrimSpace(p.TargetRef) != "" {
-				if err := policy.ValidateRefName(p.TargetRef); err != nil {
+			if targetRef != "" {
+				if err := policy.ValidateRefName(targetRef); err != nil {
 					return err
 				}
 			}
@@ -129,6 +132,7 @@ func toolResultFromRuntime(r runtime.Result, p Params, execErr error) ToolResult
 	if r.DryRunPreview != nil {
 		out.Mode = "dry-run"
 		out.DryRun = true
+		out.DryRunPreview = r.DryRunPreview
 	} else if out.OK {
 		out.Mode = "execute"
 	}

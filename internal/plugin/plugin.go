@@ -2,7 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-// Package plugin defines the MCP tool plugin surface and registration.
+// Package plugin defines the MCP tool plugin surface, capability metadata
+// ([DocumentCapabilities]), and registration.
 package plugin
 
 // Plugin identifies a stable MCP tools/list and tools/call target (tool name).

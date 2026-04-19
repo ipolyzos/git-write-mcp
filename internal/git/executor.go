@@ -130,8 +130,14 @@ func readsWithoutApproval(argv []string) bool {
 		return false
 	}
 	switch argv[0] {
-	case "version", "rev-parse":
+	case "version":
 		return true
+	case "rev-parse":
+		return true
+	case "symbolic-ref":
+		return len(argv) == 3 && argv[1] == "-q" && argv[2] == "HEAD"
+	case "diff":
+		return len(argv) == 3 && argv[1] == "--cached" && argv[2] == "--quiet"
 	default:
 		return false
 	}

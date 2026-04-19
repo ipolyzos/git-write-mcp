@@ -10,8 +10,14 @@ import (
 
 	_ "github.com/ipolyzos/git-write-mcp/plugins/commit_changes"
 	_ "github.com/ipolyzos/git-write-mcp/plugins/create_branch"
+	_ "github.com/ipolyzos/git-write-mcp/plugins/create_pull_request"
+	_ "github.com/ipolyzos/git-write-mcp/plugins/create_release_from_main"
+	_ "github.com/ipolyzos/git-write-mcp/plugins/get_pull_request_status"
+	_ "github.com/ipolyzos/git-write-mcp/plugins/merge_pull_request"
+	_ "github.com/ipolyzos/git-write-mcp/plugins/push_branch"
 	_ "github.com/ipolyzos/git-write-mcp/plugins/stage_files"
 	_ "github.com/ipolyzos/git-write-mcp/plugins/tag_revision"
+	_ "github.com/ipolyzos/git-write-mcp/plugins/unstage_files"
 )
 
 // Bootstrap exposes server wiring for tests and future stdio integration.
