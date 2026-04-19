@@ -5,4 +5,4 @@
 package version
 
 // Version is the module release version (semver-like, pre-release suffix allowed).
-var Version = "0.2.0"
+var Version = "0.2.1"
