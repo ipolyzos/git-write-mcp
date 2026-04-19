@@ -26,10 +26,11 @@ stdio **Model Context Protocol (MCP)** server for **controlled write-capable Git
 
 ## Community & legal (repository root)
 
-GitHub links **License**, **Security policy**, and **Code of conduct** from the repo overview when these root files exist:
+GitHub highlights **Contributing**, **License**, **Security policy**, and **Code of conduct** when these root files exist:
 
 | Topic | Root file |
 |-------|-----------|
+| Contributing | [`CONTRIBUTING.md`](../CONTRIBUTING.md) |
 | License | [`LICENSE`](../LICENSE) |
 | Security (disclosure) | [`SECURITY.md`](../SECURITY.md) |
 | Code of Conduct | [`CODE_OF_CONDUCT.md`](../CODE_OF_CONDUCT.md) |
@@ -54,4 +55,4 @@ Product-facing security **behavior** of this MCP server (approvals, tokens, boun
 **Apache-2.0** — see [`LICENSE`](../LICENSE).  
 Copyright **2026** **Ioannis Polyzos**. **Contact:** git@ipolyzos.com  
 
-See also [`CODE_OF_CONDUCT.md`](../CODE_OF_CONDUCT.md) and [`SECURITY.md`](../SECURITY.md).
+See also [`CONTRIBUTING.md`](../CONTRIBUTING.md), [`CODE_OF_CONDUCT.md`](../CODE_OF_CONDUCT.md), and [`SECURITY.md`](../SECURITY.md).
