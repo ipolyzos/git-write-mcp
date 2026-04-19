@@ -15,6 +15,22 @@ Provide MCP tools that can **mutate** a Git repository (branch, index, commits, 
 
 ---
 
+## Workflow automation safety model
+
+All **write** MCP tools share the same behavior class: **`runtime.Pipeline`** runs **request validation** → **repo-state checks** (where wired) → **centralized approval** ([`policy.EvaluateApproval`](internal/policy/approval_check.go)) → **dry-run preview** or **execute** → **audit append**. Tools return stable JSON shapes (`ok`, `mode`, tool-specific fields, optional `dry_run_preview`, `error`).
+
+| Write tool | Approval | Dry-run | Audit | Notes |
+|------------|----------|---------|-------|-------|
+| `stage_files`, `unstage_files` | yes | yes | yes | Path + repo containment; **unstage** uses allowlisted `git reset HEAD --` only. |
+| `commit_changes` | yes | yes | yes | Requires staged index (`RequireStagedIndex`). |
+| `create_branch`, `push_branch`, `tag_revision` | yes | yes | yes | Push must match checked-out branch; remote allowlist for push. |
+| `create_pull_request`, `merge_pull_request` | yes | yes | yes | GitHub REST; merge policy gates (checks, reviews, base allowlist, method). |
+| `create_release_from_main` | yes | yes | yes | Local **`HEAD`** must match **`GIT_WRITE_MCP_RELEASE_SOURCE_BRANCH`** (default **`main`**); **`POST .../releases`**. |
+
+Read tools: **`get_capabilities`** (no mutation, deterministic JSON); **`get_pull_request_status`** (GitHub reads only, no pipeline). Extend the **approval allowlist** and **capabilities write_tools** together—**`internal/contracts`** tests fail if they drift.
+
+---
+
 ## Scope boundaries
 
 | In scope (this MCP) | Out of scope (use a read Git MCP or the host) |
@@ -62,10 +78,10 @@ For code changes:
 1. Define scope.
 2. Add **failing tests** first (compile-fail or assertion fail).
 3. Implement the **minimum** to pass.
-4. Run **`make ci`** or the same steps as CI (`check-fmt`, `vet`, `test`, `lint`, `build`).
+4. Run **`make ci`** or the same steps as CI (`check-fmt`, `vet`, **`make test`** with race+shuffle, `lint`, `build`).
 5. Update docs when behavior or contracts change.
 
-CI and **`make test`** / **`make ci`** run **`go test -race ./...`** (data race detector).
+CI and **`make test`** / **`make ci`** run **`go test -race -count=1 -shuffle=on ./...`** (data race detector and shuffled test order).
 
 ---
 

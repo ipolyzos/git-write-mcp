@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`policy.KnownMutationActions`**: sorted list of actions accepted by **`EvaluateApproval`**; **`internal/contracts`** package tests enforce parity with **`get_capabilities`** **`write_tools`** so approval checks and capability metadata cannot drift.
 - MCP tool **`create_release_from_main`**: **`POST /repos/{owner}/{repo}/releases`** with **`target_commitish`** from **`GIT_WRITE_MCP_RELEASE_SOURCE_BRANCH`** (default **`main`**); local checkout must match that branch (**`policy.RequireHEADMatchesReleaseSource`**); requires **`tag_name`**, **`release_name`**, and **`release_notes`** or **`changelog_section`**; **`runtime.Pipeline`** (approval, dry-run, audit); **`github.MCPGitHub`** extended with **`CreateRelease`**. README documents inputs and env.
 - MCP tool **`merge_pull_request`**: merges via **`PUT .../pulls/{n}/merge`** after **`policy.EvaluateMergePolicy`** (base branch allowlist **`GIT_WRITE_MCP_ALLOWED_PR_TARGET_BRANCHES`**, **`GIT_WRITE_MCP_MERGE_ALLOWED_METHODS`**, green checks, review counts, **`mergeable_state` clean**); **`runtime.Pipeline`** (approval, dry-run, audit); **`github.MCPGitHub`** extended with **`PRMerger`**. See README merge policy table.
 - MCP tool **`get_pull_request_status`**: read-only PR readiness via GitHub REST (`GET` pull, combined **`status`** for head SHA, **`reviews`**); structured `checks_summary` and `reviews_summary`; **`plugin.Capabilities`** gains **`read_tools`** (`get_pull_request_status`). No mutation pipeline; requires the same **`GITHUB_TOKEN`** / repo env as other GitHub tools when **`GIT_WRITE_MCP_REPO_ROOT`** is configured.
@@ -25,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **CI / `make test`**: **`go test`** runs with **`-shuffle=on`** in addition to **`-race`** to surface ordering assumptions.
 - **`internal/git`**: allowlisted **`reset`** only for **`git reset HEAD -- <path>...`** (index-only unstaging); all other **`reset`** argv remains blocked as destructive.
 - **`runtime.Pipeline.Execute`**: records mutations via **`audit.Append`**; sink failures return **`fmt.Errorf("audit: %w", err)`** after **`Result.Audit`** is populated. Repository boundary enforcement is folded into **`policy.ValidateRepoState`** (replacing the standalone **`MustBeContainedUnderRepo`** call). Mutations that fail repo-state checks return **`policy.ErrRepoState`** before approval.
 
