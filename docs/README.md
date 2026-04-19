@@ -24,6 +24,20 @@ stdio **Model Context Protocol (MCP)** server for **controlled write-capable Git
 
 ---
 
+## Community & legal (repository root)
+
+GitHub links **License**, **Security policy**, and **Code of conduct** from the repo overview when these root files exist:
+
+| Topic | Root file |
+|-------|-----------|
+| License | [`LICENSE`](../LICENSE) |
+| Security (disclosure) | [`SECURITY.md`](../SECURITY.md) |
+| Code of Conduct | [`CODE_OF_CONDUCT.md`](../CODE_OF_CONDUCT.md) |
+
+Product-facing security **behavior** of this MCP server (approvals, tokens, boundaries): [Security principles](security.md).
+
+---
+
 ## Capabilities at a glance
 
 - **Write (git):** `create_branch`, `stage_files`, `unstage_files`, `commit_changes`, `push_branch`, `tag_revision`
@@ -35,8 +49,9 @@ stdio **Model Context Protocol (MCP)** server for **controlled write-capable Git
 
 ---
 
-## License
+## License & conduct
 
-**Apache-2.0** — see `LICENSE` in the repository root.  
-Copyright **2026** **Ioannis Polyzos**.  
-**Contact:** git@ipolyzos.com
+**Apache-2.0** — see [`LICENSE`](../LICENSE).  
+Copyright **2026** **Ioannis Polyzos**. **Contact:** git@ipolyzos.com  
+
+See also [`CODE_OF_CONDUCT.md`](../CODE_OF_CONDUCT.md) and [`SECURITY.md`](../SECURITY.md).

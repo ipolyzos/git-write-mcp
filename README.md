@@ -4,7 +4,19 @@ stdio **[Model Context Protocol](https://modelcontextprotocol.io/)** server that
 
 **Upstream:** https://github.com/ipolyzos/git-write-mcp · **Contact:** git@ipolyzos.com  
 
-Licensed under **Apache-2.0**. Copyright **2026** **Ioannis Polyzos**. See **`LICENSE`**.
+Licensed under **Apache-2.0**. Copyright **2026** **Ioannis Polyzos**.
+
+---
+
+## Community & legal
+
+GitHub surfaces these files in the repository **About** / community health UI when present at the repo root:
+
+| Resource | File |
+|----------|------|
+| **License** | [`LICENSE`](LICENSE) (Apache-2.0 full text) |
+| **Code of Conduct** | [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) (Contributor Covenant 2.1) |
+| **Security** | [`SECURITY.md`](SECURITY.md) — **report vulnerabilities privately** (do not open public issues for unfixed flaws) |
 
 ---
 
